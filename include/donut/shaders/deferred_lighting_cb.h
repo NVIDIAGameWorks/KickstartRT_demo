@@ -36,7 +36,7 @@ struct DeferredLightingConstants
 
     float2      shadowMapTextureSize;
     int         enableAmbientOcclusion;
-    int         padding;
+    int         enableRTShadows;
 
     float4      ambientColorTop;
     float4      ambientColorBottom;

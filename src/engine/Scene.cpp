@@ -610,13 +610,13 @@ bool Scene::LoadCustomData(Json::Value& rootNode, tf::Executor* executor)
     return true;
 }
 
-void Scene::FinishedLoading(uint32_t frameIndex)
+void Scene::FinishedLoading(uint32_t frameIndex, bool allocateSharedAcrossDevicesBufferForMeshes)
 {
     nvrhi::CommandListHandle commandList = m_Device->createCommandList();
     commandList->open();
     
-    CreateMeshBuffers(commandList);
-    Refresh(commandList, frameIndex);
+    CreateMeshBuffers(commandList, allocateSharedAcrossDevicesBufferForMeshes);
+    Refresh(commandList, frameIndex, allocateSharedAcrossDevicesBufferForMeshes);
 
     commandList->close();
     m_Device->executeCommandList(commandList);
@@ -629,12 +629,12 @@ void Scene::RefreshSceneGraph(uint32_t frameIndex)
     m_SceneGraph->Refresh(frameIndex);
 }
 
-void Scene::RefreshBuffers(nvrhi::ICommandList* commandList, uint32_t frameIndex)
+void Scene::RefreshBuffers(nvrhi::ICommandList* commandList, uint32_t frameIndex, bool allocateSharedAcrossDevicesBufferForMeshes)
 {
     bool materialsChanged = false;
 
     if (m_SceneStructureChanged)
-        CreateMeshBuffers(commandList);
+        CreateMeshBuffers(commandList, allocateSharedAcrossDevicesBufferForMeshes);
 
     const size_t allocationGranularity = 1024;
     bool arraysAllocated = false;
@@ -796,10 +796,10 @@ void Scene::UpdateSkinnedMeshes(nvrhi::ICommandList* commandList, uint32_t frame
     }
 }
 
-void Scene::Refresh(nvrhi::ICommandList* commandList, uint32_t frameIndex)
+void Scene::Refresh(nvrhi::ICommandList* commandList, uint32_t frameIndex, bool allocateSharedAcrossDevicesBufferForMeshes)
 {
     RefreshSceneGraph(frameIndex);
-    RefreshBuffers(commandList, frameIndex);
+    RefreshBuffers(commandList, frameIndex, allocateSharedAcrossDevicesBufferForMeshes);
 }
 
 
@@ -831,7 +831,7 @@ inline void AppendBufferRange(nvrhi::BufferRange& range, size_t size, uint64_t& 
     currentBufferSize += range.byteSize;
 }
 
-void Scene::CreateMeshBuffers(nvrhi::ICommandList* commandList)
+void Scene::CreateMeshBuffers(nvrhi::ICommandList* commandList, bool sharedAcrossDevice)
 {
     for (const auto& mesh : m_SceneGraph->GetMeshes())
     {
@@ -850,6 +850,7 @@ void Scene::CreateMeshBuffers(nvrhi::ICommandList* commandList)
             bufferDesc.canHaveRawViews = true;
             bufferDesc.format = nvrhi::Format::R32_UINT;
             bufferDesc.isAccelStructBuildInput = m_RayTracingSupported;
+            bufferDesc.isSharedAcrossDevice = sharedAcrossDevice;
 
             buffers->indexBuffer = m_Device->createBuffer(bufferDesc);
 
@@ -882,6 +883,7 @@ void Scene::CreateMeshBuffers(nvrhi::ICommandList* commandList)
             bufferDesc.canHaveTypedViews = true;
             bufferDesc.canHaveRawViews = true;
             bufferDesc.isAccelStructBuildInput = m_RayTracingSupported;
+            bufferDesc.isSharedAcrossDevice = sharedAcrossDevice;
 
             if (!buffers->positionData.empty())
             {

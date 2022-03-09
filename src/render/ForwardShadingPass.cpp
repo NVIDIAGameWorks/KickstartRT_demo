@@ -165,14 +165,24 @@ nvrhi::BindingLayoutHandle ForwardShadingPass::CreateLightBindingLayout()
         nvrhi::BindingLayoutItem::Texture_SRV(11),
         nvrhi::BindingLayoutItem::Texture_SRV(12),
         nvrhi::BindingLayoutItem::Texture_SRV(13),
+        nvrhi::BindingLayoutItem::Texture_SRV(14),
+        nvrhi::BindingLayoutItem::Texture_SRV(15),
         nvrhi::BindingLayoutItem::Sampler(2),
-        nvrhi::BindingLayoutItem::Sampler(3)
+        nvrhi::BindingLayoutItem::Sampler(3),
+        nvrhi::BindingLayoutItem::Sampler(4),
+        nvrhi::BindingLayoutItem::Sampler(5),
     };
 
     return m_Device->createBindingLayout(lightProbeBindingDesc);
 }
 
-nvrhi::BindingSetHandle ForwardShadingPass::CreateLightBindingSet(nvrhi::ITexture* shadowMapTexture, nvrhi::ITexture* diffuse, nvrhi::ITexture* specular, nvrhi::ITexture* environmentBrdf)
+nvrhi::BindingSetHandle ForwardShadingPass::CreateLightBindingSet(
+    nvrhi::ITexture* shadowMapTexture, 
+    nvrhi::ITexture* diffuse, 
+    nvrhi::ITexture* specular, 
+    nvrhi::ITexture* environmentBrdf, 
+    nvrhi::ITexture* rtTransReflections,
+    nvrhi::ITexture* rtTransDepth)
 {
     nvrhi::BindingSetDesc bindingSetDesc;
 
@@ -181,8 +191,12 @@ nvrhi::BindingSetHandle ForwardShadingPass::CreateLightBindingSet(nvrhi::ITextur
         nvrhi::BindingSetItem::Texture_SRV(11, diffuse ? diffuse : m_CommonPasses->m_BlackCubeMapArray.Get()),
         nvrhi::BindingSetItem::Texture_SRV(12, specular ? specular : m_CommonPasses->m_BlackCubeMapArray.Get()),
         nvrhi::BindingSetItem::Texture_SRV(13, environmentBrdf ? environmentBrdf : m_CommonPasses->m_BlackTexture.Get()),
+        nvrhi::BindingSetItem::Texture_SRV(14, rtTransReflections ? rtTransReflections : m_CommonPasses->m_BlackTexture.Get()),
+        nvrhi::BindingSetItem::Texture_SRV(15, rtTransDepth ? rtTransDepth : m_CommonPasses->m_BlackTexture.Get()),
         nvrhi::BindingSetItem::Sampler(2, m_CommonPasses->m_LinearWrapSampler),
-        nvrhi::BindingSetItem::Sampler(3, m_CommonPasses->m_LinearClampSampler)
+        nvrhi::BindingSetItem::Sampler(3, m_CommonPasses->m_LinearClampSampler),
+        nvrhi::BindingSetItem::Sampler(4, m_CommonPasses->m_PointClampSampler),
+        nvrhi::BindingSetItem::Sampler(5, m_CommonPasses->m_PointClampSampler)
     };
     bindingSetDesc.trackLiveness = m_TrackLiveness;
 
@@ -297,7 +311,9 @@ void ForwardShadingPass::PrepareLights(
     const std::vector<std::shared_ptr<Light>>& lights,
     dm::float3 ambientColorTop,
     dm::float3 ambientColorBottom,
-    const std::vector<std::shared_ptr<LightProbe>>& lightProbes)
+    const std::vector<std::shared_ptr<LightProbe>>& lightProbes,
+    nvrhi::ITexture* rtTransReflections,
+    nvrhi::ITexture* rtTransDepth)
 {
     nvrhi::ITexture* shadowMapTexture = nullptr;
     int2 shadowMapTextureSize = 0;
@@ -339,11 +355,17 @@ void ForwardShadingPass::PrepareLights(
     {
         std::lock_guard<std::mutex> lockGuard(m_Mutex);
 
-        nvrhi::BindingSetHandle& lightBindings = m_LightBindingSets[std::make_pair(shadowMapTexture, lightProbeDiffuse)];
+        size_t hash = 0;
+        nvrhi::hash_combine(hash, shadowMapTexture);
+        nvrhi::hash_combine(hash, lightProbeDiffuse);
+        nvrhi::hash_combine(hash, rtTransReflections);
+        nvrhi::hash_combine(hash, rtTransDepth);
+
+        nvrhi::BindingSetHandle& lightBindings = m_LightBindingSets[hash];
 
         if (!lightBindings)
         {
-            lightBindings = CreateLightBindingSet(shadowMapTexture, lightProbeDiffuse, lightProbeSpecular, lightProbeEnvironmentBrdf);
+            lightBindings = CreateLightBindingSet(shadowMapTexture, lightProbeDiffuse, lightProbeSpecular, lightProbeEnvironmentBrdf, rtTransReflections, rtTransDepth);
         }
 
         context.lightBindingSet = lightBindings;

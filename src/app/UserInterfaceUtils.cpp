@@ -46,12 +46,23 @@ bool donut::app::FileDialog(bool bOpen, const char* pFilters, std::string& fileN
     CHAR chars[PATH_MAX] = "";
     ZeroMemory(&ofn, sizeof(ofn));
 
+    std::filesystem::path      p(fileName);
+    std::string pathStr;
+    if (p.has_parent_path())
+        pathStr = p.parent_path().string();
+    if (p.has_filename()) {
+        std::string fileStr = p.filename().string();
+        std::strncpy(chars, fileStr.c_str(), fileStr.length() + 1);
+    }
+
     ofn.lStructSize = sizeof(OPENFILENAME);
     ofn.hwndOwner = GetForegroundWindow();
     ofn.lpstrFilter = pFilters;
     ofn.lpstrFile = chars;
     ofn.nMaxFile = ARRAYSIZE(chars);
     ofn.Flags = OFN_HIDEREADONLY | OFN_NOCHANGEDIR;
+    if (pathStr.length() > 0)
+        ofn.lpstrInitialDir = pathStr.c_str();
     if (bOpen)
     {
         ofn.Flags |= OFN_FILEMUSTEXIST;
@@ -270,6 +281,7 @@ bool donut::app::LightEditor_Spot(engine::SpotLight& light)
     changed |= ImGui::SliderFloat("Intensity", &light.intensity, 0.f, 100.f, "%.2f", ImGuiSliderFlags_Logarithmic);
     changed |= ImGui::SliderFloat("Inner Angle", &light.innerAngle, 0.f, 180.f);
     changed |= ImGui::SliderFloat("Outer Angle", &light.outerAngle, 0.f, 180.f);
+    changed |= ImGui::SliderFloat("Range", &light.range, 0.f, 1000.f, "%.3f", ImGuiSliderFlags_Logarithmic);
     return changed;
 }
 

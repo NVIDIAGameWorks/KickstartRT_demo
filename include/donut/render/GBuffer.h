@@ -48,6 +48,20 @@ namespace donut::render
         nvrhi::TextureHandle GBufferNormals;
         nvrhi::TextureHandle GBufferEmissive;
 
+        // The "-Final" postfix indicates that it's the rendertarget that will be displayed.
+        // When denoising is on, this contains the denoised signal. If denoising is off it contains the noisy signal.
+
+        nvrhi::TextureHandle GBufferWorldPosition;
+        nvrhi::TextureHandle GBufferRTReflections;      
+        nvrhi::TextureHandle GBufferRTReflectionsFinal; 
+        nvrhi::TextureHandle GBufferRTGI;
+        nvrhi::TextureHandle GBufferRTGIFinal;
+        nvrhi::TextureHandle GBufferRTAO;
+        nvrhi::TextureHandle GBufferRTAOFinal;
+        nvrhi::TextureHandle GBufferRTShadows;
+        nvrhi::TextureHandle GBufferRTShadowsAux;
+        nvrhi::TextureHandle GBufferRTShadowsFinal;
+
         nvrhi::TextureHandle MotionVectors;
 
         std::shared_ptr<engine::FramebufferFactory> GBufferFramebuffer;
@@ -59,7 +73,8 @@ namespace donut::render
             dm::uint2 size, 
             dm::uint sampleCount,
             bool enableMotionVectors,
-            bool useReverseProjection);
+            bool useReverseProjection,
+            bool sharedAcrossDevice);
 
         virtual void Clear(nvrhi::ICommandList* commandList);
 
