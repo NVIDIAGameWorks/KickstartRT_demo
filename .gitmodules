@@ -25,3 +25,6 @@
 [submodule "KickstartRT"]
 	path = KickstartRT
 	url = git@github.com:NVIDIAGameWorks/KickstartRT.git
+[submodule "media/glTF-Sample-Models"]
+	path = media/glTF-Sample-Models
+	url = https://github.com/KhronosGroup/glTF-Sample-Models.git
