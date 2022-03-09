@@ -22,3 +22,6 @@
 [submodule "thirdparty/miniz"]
 	path = thirdparty/miniz
 	url = https://github.com/richgel999/miniz.git
+[submodule "KickstartRT"]
+	path = KickstartRT
+	url = git@github.com:NVIDIAGameWorks/KickstartRT.git
