@@ -22,6 +22,7 @@
 
 project(donut)
 cmake_minimum_required(VERSION 3.10)
+project(KickstartRT_Demo VERSION 0.9.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -51,6 +52,13 @@ option(DONUT_WITH_MINIZ "Include miniz (support for zip archives)" ON)
 option(DONUT_WITH_TASKFLOW "Include TaskFlow" ON)
 option(DONUT_WITH_TINYEXR "Include TinyEXR" ON)
 option(DONUT_WITH_UNIT_TESTS "Donut unit-tests (see CMake/CTest documentation)" OFF)
+
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
+set(DONUT_SHADERS_OUTPUT_DIR "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/shaders/framework")
 
 add_subdirectory(thirdparty)
 
@@ -90,3 +98,6 @@ if (DONUT_WITH_UNIT_TESTS)
     add_subdirectory(tests)
 endif()
 
+add_subdirectory(KickstartRT)
+add_subdirectory(kickstartRT_demo)
+set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT KickstartRT_Demo)
