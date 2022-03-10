@@ -54,7 +54,8 @@ void GBufferRenderTargets::Init(
     desc.isUAV = false;
 #else
     desc.isUAV = true;
-    desc.isSharedAcrossDevice = sharedAcrossDevice;
+    if (sharedAcrossDevice)
+        desc.sharedResourceFlags = nvrhi::SharedResourceFlags::Shared;
 #endif
     desc.mipLevels = 1;
 

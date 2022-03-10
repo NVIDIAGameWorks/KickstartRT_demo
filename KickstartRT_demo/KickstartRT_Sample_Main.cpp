@@ -132,10 +132,11 @@ public:
         desc.isUAV = sampleCount == 1;
         desc.format = nvrhi::Format::RGBA16_FLOAT;
         desc.initialState = nvrhi::ResourceStates::RenderTarget;
-        desc.isSharedAcrossDevice = sharedAcrossDevice;
+        if (sharedAcrossDevice)
+            desc.sharedResourceFlags = nvrhi::SharedResourceFlags::Shared;
         desc.debugName = "HdrColor";
         HdrColor = device->createTexture(desc);
-        desc.isSharedAcrossDevice = false;
+        desc.sharedResourceFlags = nvrhi::SharedResourceFlags::None;
 
         desc.format = nvrhi::Format::RG16_UINT;
         desc.isUAV = false;

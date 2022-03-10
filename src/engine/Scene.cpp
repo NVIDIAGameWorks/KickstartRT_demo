@@ -850,7 +850,8 @@ void Scene::CreateMeshBuffers(nvrhi::ICommandList* commandList, bool sharedAcros
             bufferDesc.canHaveRawViews = true;
             bufferDesc.format = nvrhi::Format::R32_UINT;
             bufferDesc.isAccelStructBuildInput = m_RayTracingSupported;
-            bufferDesc.isSharedAcrossDevice = sharedAcrossDevice;
+            if (sharedAcrossDevice)
+                bufferDesc.sharedResourceFlags = nvrhi::SharedResourceFlags::Shared;
 
             buffers->indexBuffer = m_Device->createBuffer(bufferDesc);
 
@@ -883,7 +884,8 @@ void Scene::CreateMeshBuffers(nvrhi::ICommandList* commandList, bool sharedAcros
             bufferDesc.canHaveTypedViews = true;
             bufferDesc.canHaveRawViews = true;
             bufferDesc.isAccelStructBuildInput = m_RayTracingSupported;
-            bufferDesc.isSharedAcrossDevice = sharedAcrossDevice;
+            if (sharedAcrossDevice)
+                bufferDesc.sharedResourceFlags = nvrhi::SharedResourceFlags::Shared;
 
             if (!buffers->positionData.empty())
             {
