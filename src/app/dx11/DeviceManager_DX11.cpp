@@ -56,6 +56,9 @@ freely, subject to the following restrictions:
 
 #include <Windows.h>
 #include <dxgi1_3.h>
+#if 1
+#include <dxgi1_5.h>
+#endif
 #include <dxgidebug.h>
 
 #include <nvrhi/d3d11.h>
@@ -66,6 +69,8 @@ freely, subject to the following restrictions:
 
 using nvrhi::RefCountPtr;
 
+#define HR_RETURN(hr) if(FAILED(hr)) return false;
+
 using namespace donut::app;
 
 class DeviceManager_DX11 : public DeviceManager
@@ -73,8 +78,12 @@ class DeviceManager_DX11 : public DeviceManager
     RefCountPtr<ID3D11Device> m_Device;
     RefCountPtr<ID3D11DeviceContext> m_ImmediateContext;
     RefCountPtr<IDXGISwapChain> m_SwapChain;
+    RefCountPtr<IDXGIAdapter1> m_DXGIAdapter1;
     DXGI_SWAP_CHAIN_DESC m_SwapChainDesc{};
     HWND m_hWnd = nullptr;
+#if 1
+    bool                                        m_TearingSupported = false;
+#endif
 
     nvrhi::DeviceHandle m_NvrhiDevice;
     nvrhi::TextureHandle m_RhiBackBuffer;
@@ -127,6 +136,11 @@ protected:
     uint32_t GetBackBufferCount() override
     {
         return 1;
+    }
+
+    void *GetDXGIAdapter1() override
+    {
+        return m_DXGIAdapter1.Get();
     }
 
     void Present() override;
@@ -310,6 +324,19 @@ bool DeviceManager_DX11::CreateDeviceAndSwapChain()
 
     m_hWnd = glfwGetWin32Window(m_Window);
 
+    RefCountPtr<IDXGIFactory2> pDxgiFactory;
+    UINT dxgiFactoryFlags = m_DeviceParams.enableDebugRuntime ? DXGI_CREATE_FACTORY_DEBUG : 0;
+    HRESULT hr = CreateDXGIFactory2(dxgiFactoryFlags, IID_PPV_ARGS(&pDxgiFactory));
+    HR_RETURN(hr)
+
+    RefCountPtr<IDXGIFactory5> pDxgiFactory5;
+    if (SUCCEEDED(pDxgiFactory->QueryInterface(IID_PPV_ARGS(&pDxgiFactory5))))
+    {
+        BOOL supported = 0;
+        if (SUCCEEDED(pDxgiFactory5->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &supported, sizeof(supported))))
+            m_TearingSupported = (supported != 0);
+    }
+
     RECT clientRect;
     GetClientRect(m_hWnd, &clientRect);
     UINT width = clientRect.right - clientRect.left;
@@ -328,6 +355,11 @@ bool DeviceManager_DX11::CreateDeviceAndSwapChain()
     m_SwapChainDesc.Windowed = !m_DeviceParams.startFullscreen;
     m_SwapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
     m_SwapChainDesc.Flags = m_DeviceParams.allowModeSwitch ? DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH : 0;
+
+    if (m_TearingSupported)
+    {
+        m_SwapChainDesc.Flags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+    }
 
     // Special processing for sRGB swap chain formats.
     // DXGI will not create a swap chain with an sRGB format, but its contents will be interpreted as sRGB.
@@ -349,7 +381,7 @@ bool DeviceManager_DX11::CreateDeviceAndSwapChain()
     if (m_DeviceParams.enableDebugRuntime)
         createFlags |= D3D11_CREATE_DEVICE_DEBUG;
 
-    const HRESULT hr = D3D11CreateDeviceAndSwapChain(
+    hr = D3D11CreateDeviceAndSwapChain(
         targetAdapter, // pAdapter
         D3D_DRIVER_TYPE_UNKNOWN, // DriverType
         nullptr, // Software
@@ -386,6 +418,10 @@ bool DeviceManager_DX11::CreateDeviceAndSwapChain()
     {
         return false;
     }
+
+    targetAdapter->QueryInterface(__uuidof(IDXGIAdapter1), (LPVOID*)&m_DXGIAdapter1);
+    if (!m_DXGIAdapter1)
+        return false;
 
     return true;
 }
@@ -470,7 +506,14 @@ void DeviceManager_DX11::ResizeSwapChain()
 
 void DeviceManager_DX11::Present()
 {
-    m_SwapChain->Present(m_DeviceParams.vsyncEnabled ? 1 : 0, 0);
+    UINT presentFlags = 0;
+    if (!m_DeviceParams.vsyncEnabled && m_TearingSupported)
+        presentFlags |= DXGI_PRESENT_ALLOW_TEARING;
+
+    HRESULT hr = m_SwapChain->Present(m_DeviceParams.vsyncEnabled ? 1 : 0, presentFlags);
+    if (FAILED(hr)) {
+        assert(false);
+    }
 }
 
 DeviceManager *DeviceManager::CreateD3D11()

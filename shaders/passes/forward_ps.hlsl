@@ -44,10 +44,14 @@ Texture2DArray t_ShadowMapArray : register(t10 VK_DESCRIPTOR_SET(2));
 TextureCubeArray t_DiffuseLightProbe : register(t11 VK_DESCRIPTOR_SET(2));
 TextureCubeArray t_SpecularLightProbe : register(t12 VK_DESCRIPTOR_SET(2));
 Texture2D t_EnvironmentBrdf : register(t13 VK_DESCRIPTOR_SET(2));
+Texture2D t_rtTransDepth : register(t14 VK_DESCRIPTOR_SET(2));
+Texture2D t_rtTransReflection : register(t15 VK_DESCRIPTOR_SET(2));
 
 SamplerState s_ShadowSampler : register(s1 VK_DESCRIPTOR_SET(1));
 SamplerState s_LightProbeSampler : register(s2 VK_DESCRIPTOR_SET(2));
 SamplerState s_BrdfSampler : register(s3 VK_DESCRIPTOR_SET(2));
+SamplerState s_rtTransDepthSampler : register(s4 VK_DESCRIPTOR_SET(2));
+SamplerState s_rtTransReflectionSampler : register(s5 VK_DESCRIPTOR_SET(2));
 
 float3 GetIncidentVector(float4 directionOrPosition, float3 surfacePos)
 {
@@ -182,6 +186,14 @@ void main(
     
     // See https://github.com/KhronosGroup/glTF/blob/master/extensions/2.0/Khronos/KHR_materials_transmission/README.md#transmission-btdf
 
+    const float2 uv = i_position.xy * g_ForwardView.view.viewportSizeInv;
+    float rtTransDepth = t_rtTransDepth.SampleLevel(s_rtTransDepthSampler, uv, 0).x;
+    const float Sigma = 1e5;
+    const bool bIsClosestLayer = abs(rtTransDepth - i_position.z) < 1e5;
+    float3 rtTransRefl = bIsClosestLayer ? t_rtTransReflection.SampleLevel(s_rtTransReflectionSampler, uv, 0).xyz : 0;
+
+    specularTerm += Schlick_Fresnel(0.04, NdotV) * rtTransRefl;
+    
     float dielectricFresnel = Schlick_Fresnel(0.04, NdotV);
     
     o_color.rgb = diffuseTerm * (1.0 - surfaceMaterial.transmission)

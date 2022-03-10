@@ -52,6 +52,8 @@ Texture2D t_IndirectDiffuse : register(t14);
 Texture2D t_IndirectSpecular : register(t15);
 Texture2D t_ShadowBuffer : register(t16);
 Texture2D t_AmbientOcclusion : register(t17);
+Texture2D t_RTShadows : register(t18);
+Texture2D t_RTAmbientOcclusion : register(t19);
 
 RWTexture2D<float4> u_Output : register(u0);
 
@@ -119,8 +121,13 @@ void main(int2 i_globalIdx : SV_DispatchThreadID)
 
         combinedCascadeShadow.x += (1 - combinedCascadeShadow.y) * light.outOfBoundsShadow;
 
-        shadow *= combinedCascadeShadow.x;
-        
+        if (g_Deferred.enableRTShadows) {
+            shadow *= clamp(t_RTShadows[pixelPosition].x, 0, 1);
+        }
+        else {
+            shadow *= combinedCascadeShadow.x;
+        }
+
         float objectShadow = 1;
 
         [loop]

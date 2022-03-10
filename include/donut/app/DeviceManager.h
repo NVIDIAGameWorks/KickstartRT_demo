@@ -101,7 +101,11 @@ namespace donut::app
         uint32_t swapChainSampleCount = 1;
         uint32_t swapChainSampleQuality = 0;
         uint32_t maxFramesInFlight = 2;
+#if _DEBUG
+        bool enableDebugRuntime = true;
+#else
         bool enableDebugRuntime = false;
+#endif
         bool enableNvrhiValidationLayer = false;
         bool vsyncEnabled = false;
         bool enableRayTracingExtensions = false; // for vulkan
@@ -249,6 +253,9 @@ namespace donut::app
         virtual nvrhi::ITexture* GetBackBuffer(uint32_t index) = 0;
         virtual uint32_t GetCurrentBackBufferIndex() = 0;
         virtual uint32_t GetBackBufferCount() = 0;
+
+        virtual void* GetDXGIAdapter1() { return nullptr; };
+
         nvrhi::IFramebuffer* GetCurrentFramebuffer();
         nvrhi::IFramebuffer* GetFramebuffer(uint32_t index);
 
@@ -264,6 +271,7 @@ namespace donut::app
         virtual void GetEnabledVulkanInstanceExtensions(std::vector<std::string>& extensions) const { }
         virtual void GetEnabledVulkanDeviceExtensions(std::vector<std::string>& extensions) const { }
         virtual void GetEnabledVulkanLayers(std::vector<std::string>& layers) const { }
+        virtual int GetVulkanGraphicsQueueFamilyIndex() const { return -1; }
 
     private:
         static DeviceManager* CreateD3D11();

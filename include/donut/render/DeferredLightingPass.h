@@ -76,6 +76,8 @@ namespace donut::render
             nvrhi::ITexture* indirectSpecular = nullptr;
             nvrhi::ITexture* shadowChannels = nullptr;
             nvrhi::ITexture* ambientOcclusion = nullptr;
+            nvrhi::ITexture* rtShadow = nullptr;
+            nvrhi::ITexture* rtAmbientOcclusion = nullptr;
             nvrhi::ITexture* output = nullptr;
 
             const std::vector<std::shared_ptr<engine::Light>>* lights = nullptr;

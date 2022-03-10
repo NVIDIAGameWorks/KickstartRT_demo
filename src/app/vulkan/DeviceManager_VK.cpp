@@ -152,6 +152,11 @@ protected:
             layers.push_back(ext);
     }
 
+    int GetVulkanGraphicsQueueFamilyIndex() const override
+    {
+        return m_GraphicsQueueFamily;
+    }
+
 private:
     bool createInstance();
     bool createWindowSurface();
@@ -745,6 +750,7 @@ bool DeviceManager_VK::createDevice()
         .setDescriptorBindingVariableDescriptorCount(true)
         .setTimelineSemaphore(true)
         .setShaderSampledImageArrayNonUniformIndexing(true)
+        .setBufferDeviceAddress(bufferAddressSupported)
         .setPNext(pNext);
 
     auto layerVec = stringSetToVector(enabledExtensions.layers);

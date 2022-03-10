@@ -36,7 +36,8 @@ void GBufferRenderTargets::Init(
     uint2 size, 
     uint sampleCount,
     bool enableMotionVectors,
-    bool useReverseProjection)
+    bool useReverseProjection,
+    bool sharedAcrossDevice)
 {
     nvrhi::TextureDesc desc;
     desc.width = size.x;
@@ -49,24 +50,83 @@ void GBufferRenderTargets::Init(
     desc.dimension = sampleCount > 1 ? nvrhi::TextureDimension::Texture2DMS : nvrhi::TextureDimension::Texture2D;
     desc.keepInitialState = true;
     desc.isTypeless = false;
+#if 0
     desc.isUAV = false;
+#else
+    desc.isUAV = true;
+    desc.isSharedAcrossDevice = sharedAcrossDevice;
+#endif
     desc.mipLevels = 1;
 
+#if 0
     desc.format = nvrhi::Format::SRGBA8_UNORM;
+#else
+    desc.format = nvrhi::Format::RGBA16_FLOAT;
+#endif
     desc.debugName = "GBufferDiffuse";
     GBufferDiffuse = device->createTexture(desc);
 
+#if 0
     desc.format = nvrhi::Format::SRGBA8_UNORM;
+#else
+    desc.format = nvrhi::Format::RGBA16_FLOAT;
+#endif
     desc.debugName = "GBufferSpecular";
     GBufferSpecular = device->createTexture(desc);
 
+#if 0
     desc.format = nvrhi::Format::RGBA16_SNORM;
+#else
+    desc.format = nvrhi::Format::RGBA16_FLOAT;
+#endif
     desc.debugName = "GBufferNormals";
     GBufferNormals = device->createTexture(desc);
 
     desc.format = nvrhi::Format::RGBA16_FLOAT;
     desc.debugName = "GBufferEmissive";
     GBufferEmissive = device->createTexture(desc);
+
+#if 1
+    desc.format = nvrhi::Format::RGBA32_FLOAT;
+    desc.debugName = "GBufferWorldPosition";
+    GBufferWorldPosition = device->createTexture(desc);
+
+    desc.format = nvrhi::Format::RGBA16_FLOAT;
+    desc.debugName = "GBufferRTReflections";
+    GBufferRTReflections = device->createTexture(desc);
+
+    desc.format = nvrhi::Format::RGBA16_FLOAT;
+    desc.debugName = "GBufferRTReflectionsFinal";
+    GBufferRTReflectionsFinal = device->createTexture(desc);
+
+    desc.debugName = "GBufferRTGI";
+    GBufferRTGI = device->createTexture(desc);
+
+    desc.debugName = "GBufferRTGIFinal";
+    GBufferRTGIFinal = device->createTexture(desc);
+
+    desc.debugName = "GBufferRTAO";
+    GBufferRTAO = device->createTexture(desc);
+
+    desc.debugName = "GBufferRTAOFinal";
+    GBufferRTAOFinal = device->createTexture(desc);
+    
+    desc.debugName = "GBufferRTShadows";
+    desc.format = nvrhi::Format::RG16_FLOAT;
+    GBufferRTShadows = device->createTexture(desc);
+
+    desc.debugName = "GBufferRTShadowsAux";
+    desc.format = nvrhi::Format::RGBA16_FLOAT;
+    GBufferRTShadowsAux = device->createTexture(desc);
+
+    desc.debugName = "GBufferRTShadowsFinal";
+    desc.format = nvrhi::Format::RGBA16_FLOAT;
+    GBufferRTShadowsFinal = device->createTexture(desc);
+#endif
+
+#if 1
+    desc.isUAV = false;
+#endif
 
     const nvrhi::Format depthFormats[] = {
         nvrhi::Format::D24S8,
@@ -80,7 +140,9 @@ void GBufferRenderTargets::Init(
         nvrhi::FormatSupport::ShaderLoad;
 
     desc.format = nvrhi::utils::ChooseFormat(device, depthFeatures, depthFormats, std::size(depthFormats));
+
     desc.isTypeless = true;
+    desc.format = nvrhi::Format::D24S8;
     desc.initialState = nvrhi::ResourceStates::DepthWrite;
     desc.clearValue = useReverseProjection ? nvrhi::Color(0.f) : nvrhi::Color(1.f);
     desc.debugName = "GBufferDepth";
@@ -99,11 +161,21 @@ void GBufferRenderTargets::Init(
     MotionVectors = device->createTexture(desc);
 
     GBufferFramebuffer = std::make_shared<FramebufferFactory>(device);
+#if 0
     GBufferFramebuffer->RenderTargets = {
         GBufferDiffuse,
         GBufferSpecular,
         GBufferNormals,
         GBufferEmissive };
+#else
+    GBufferFramebuffer->RenderTargets = {
+        GBufferDiffuse,
+        GBufferSpecular,
+        GBufferNormals,
+        GBufferEmissive,
+        GBufferWorldPosition,
+    };
+#endif
 
     if (enableMotionVectors)
         GBufferFramebuffer->RenderTargets.push_back(MotionVectors);
@@ -120,10 +192,22 @@ void GBufferRenderTargets::Clear(nvrhi::ICommandList* commandList)
     const nvrhi::FormatInfo& depthFormatInfo = nvrhi::getFormatInfo(Depth->getDesc().format);
 
     float depthClearValue = m_UseReverseProjection ? 0.f : 1.f;
+#if 0
+    commandList->clearDepthStencilTexture(Depth, nvrhi::AllSubresources, true, depthClearValue, true, 0);
+#else
     commandList->clearDepthStencilTexture(Depth, nvrhi::AllSubresources, true, depthClearValue, depthFormatInfo.hasStencil, 0);
+#endif
     commandList->clearTextureFloat(GBufferDiffuse, nvrhi::AllSubresources, nvrhi::Color(0.f));
     commandList->clearTextureFloat(GBufferSpecular, nvrhi::AllSubresources, nvrhi::Color(0.f));
     commandList->clearTextureFloat(GBufferNormals, nvrhi::AllSubresources, nvrhi::Color(0.f));
     commandList->clearTextureFloat(GBufferEmissive, nvrhi::AllSubresources, nvrhi::Color(0.f));
+#if 1
+    commandList->clearTextureFloat(GBufferWorldPosition, nvrhi::AllSubresources, nvrhi::Color(0.f));
+    commandList->clearTextureFloat(GBufferRTReflections, nvrhi::AllSubresources, nvrhi::Color(0.f));
+    commandList->clearTextureFloat(GBufferRTGI, nvrhi::AllSubresources, nvrhi::Color(0.f));
+    commandList->clearTextureFloat(GBufferRTAO, nvrhi::AllSubresources, nvrhi::Color(0.f));
+    commandList->clearTextureFloat(GBufferRTShadows, nvrhi::AllSubresources, nvrhi::Color(0.f));
+    commandList->clearTextureFloat(GBufferRTShadowsAux, nvrhi::AllSubresources, nvrhi::Color(0.f));
+#endif
     commandList->clearTextureFloat(MotionVectors, nvrhi::AllSubresources, nvrhi::Color(0.f));
 }

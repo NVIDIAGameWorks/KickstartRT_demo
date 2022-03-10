@@ -104,7 +104,7 @@ namespace donut::engine
         void WriteGeometryBuffer(nvrhi::ICommandList* commandList) const;
         void WriteInstanceBuffer(nvrhi::ICommandList* commandList) const;
 
-        virtual void CreateMeshBuffers(nvrhi::ICommandList* commandList);
+        virtual void CreateMeshBuffers(nvrhi::ICommandList* commandList, bool sharedAcrossDevice);
         virtual nvrhi::BufferHandle CreateMaterialBuffer();
         virtual nvrhi::BufferHandle CreateGeometryBuffer();
         virtual nvrhi::BufferHandle CreateInstanceBuffer();
@@ -122,16 +122,16 @@ namespace donut::engine
             std::shared_ptr<DescriptorTableManager> descriptorTable,
             std::shared_ptr<SceneTypeFactory> sceneTypeFactory);
         
-        void FinishedLoading(uint32_t frameIndex);
+        void FinishedLoading(uint32_t frameIndex, bool allocateSharedAcrossDevicesBufferForMeshes);
 
         // Processes animations, transforms, bounding boxes etc.
         void RefreshSceneGraph(uint32_t frameIndex);
 
         // Creates missing buffers, uploads vertex buffers, instance data, materials, etc.
-        void RefreshBuffers(nvrhi::ICommandList* commandList, uint32_t frameIndex);
+        void RefreshBuffers(nvrhi::ICommandList* commandList, uint32_t frameIndex, bool allocateSharedAcrossDevicesBufferForMeshes);
 
         // A combination of RefreshSceneGraph and RefreshBuffers
-        void Refresh(nvrhi::ICommandList* commandList, uint32_t frameIndex);
+        void Refresh(nvrhi::ICommandList* commandList, uint32_t frameIndex, bool allocateSharedAcrossDevicesBufferForMeshes);
 
         bool Load(const std::filesystem::path& jsonFileName);
 
