@@ -1,3 +1,16 @@
+
+# An example implementation of Kickstart RT using Donut
+This is an example implementaion of Kickstart RT using Donut framework. This app demonstrates reflection, GI, AO and ray traced shadows using Kickstart RT. As Donut framework and Kickstart RT support D3D11, 12 and Vulkan, this app realizes the identical functionalities on all of them.  
+![KSDemo](https://user-images.githubusercontent.com/5753935/157599510-e5cab6b4-f1a1-4035-9fde-605515fd87f5.png)
+
+
+This repository is forked from [NVIDIAGameWorks/donut](https://github.com/NVIDIAGameWorks/donut) and added main rendering loop with some customization on the Donut framework. Also, it has the following additional submodules. 
+
+### Additional Dependencies
+
+* [KickstartRT](https://github.com/NVIDIAGameWorks/KickstartRT)
+* [glTF-Sample-Models](https://github.com/KhronosGroup/glTF-Sample-Models.git)
+
 # Donut
 
 Donut is a real-time rendering framework built by NVIDIA DevTech for use in various prototype renderers and code samples. It provides a collection of reusable and somewhat extensible rendering passes that can be put together in an application, and a system for loading a scene and maintaining its component graph.
