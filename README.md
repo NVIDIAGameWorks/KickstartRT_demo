@@ -1,6 +1,6 @@
 
 # An example implementation of Kickstart RT using Donut
-This is an example implementaion of Kickstart RT using Donut framework. This app demonstrates reflection, GI, AO and ray traced shadows using Kickstart RT. As Donut framework and Kickstart RT support D3D11, 12 and Vulkan, this app realizes the identical functionalities on all of them.  
+This is an example implementaion of Kickstart RT using Donut framework. This app demonstrates reflection, GI, AO and ray traced shadows using Kickstart RT. As Donut and Kickstart RT support D3D11, 12 and Vulkan, this app realizes the identical functionalities on all of them.  
 ![KSDemo](https://user-images.githubusercontent.com/5753935/157599510-e5cab6b4-f1a1-4035-9fde-605515fd87f5.png)
 
 
