@@ -11,7 +11,7 @@ This repository is forked from [NVIDIAGameWorks/donut](https://github.com/NVIDIA
 
 # Getting started
 This application is designed to provide an example implementation of KickstartRT SDK. By using Donut framework, it handles three different graphics APIs in the same binary on Windows. You can switch the using graphics API by simply providing an argument when executing the application.  
-In addition to browsing the sample code, we encourage you to check out the [README.md](https://github.com/NVIDIAGameWorks/KickstartRT/README.md) and [docs](https://github.com/NVIDIAGameWorks/KickstartRT/README.md) in the KickstartRT SDK repository, that includes requirement for other dependent SDKs and the GPU.
+In addition to browsing the sample code, we encourage you to check out the [README.md](https://github.com/NVIDIAGameWorks/KickstartRT/blob/main/README.md) and [docs](https://github.com/NVIDIAGameWorks/KickstartRT/tree/main/docs) in the KickstartRT SDK repository, that includes requirement for other dependent SDKs and the GPU.
 
 #### Build Steps
 Kickstart_Demo is built using CMake, so the build instructions are pretty standard. 
@@ -20,7 +20,7 @@ Kickstart_Demo is built using CMake, so the build instructions are pretty standa
 1. Clone the repository  
   `git clone –recursive https://github.com/NVIDIAGameWorks/KickstartRT_Demo`
 2. Set up the dependent libraries  
-  Refer KickstartRT SDK's [README.md](https://github.com/NVIDIAGameWorks/KickstartRT) and set up prerequisites.
+  Refer KickstartRT SDK's [README.md](https://github.com/NVIDIAGameWorks/KickstartRT/blob/main/README.md) and set up prerequisites.
 3. CMake configure and generate projects.  
   If you like, you can use CMake GUI to configure project files. You can set the destination folder anywhere but `build` directory just under the repository is preferred since it is already noted in `.gitignore`.   
 4. Build & Run  
