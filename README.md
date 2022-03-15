@@ -1,6 +1,6 @@
 
 # Kickstart RT Demo application using Donut
-This is an example implementaion of Kickstart RT SDK using Donut framework. This app demonstrates reflection, GI, AO and ray traced shadows using Kickstart RT. As Donut and Kickstart RT support D3D11, 12 and Vulkan, this app realizes the identical functionalities on all of them.  
+This is an example integration of the Kickstart RT SDK using the Donut framework. This app demonstrates reflection, GI, AO and ray traced shadows using Kickstart RT. As Donut and Kickstart RT support D3D11, 12 and Vulkan, this app demonstrates identical functionality using all of the APIs.  
 ![KSDemo](https://user-images.githubusercontent.com/5753935/157599510-e5cab6b4-f1a1-4035-9fde-605515fd87f5.png)
 
 
@@ -10,7 +10,7 @@ This repository is forked from [NVIDIAGameWorks/donut](https://github.com/NVIDIA
 - [glTF-Sample-Models](https://github.com/KhronosGroup/glTF-Sample-Models.git)  
 
 # Getting started
-This application is designed to provide an example implementation of KickstartRT SDK. By using Donut framework, it handles three different graphics APIs in the same binary on Windows. You can switch the using graphics API by simply providing an argument when executing the application.  
+This application is designed to provide an example integration of the KickstartRT SDK. By using Donut framework, it handles three different graphics APIs in the same binary on Windows. You can switch the current graphics API by simply providing an argument when executing the application.  
 In addition to browsing the sample code, we encourage you to check out the [README.md](https://github.com/NVIDIAGameWorks/KickstartRT/blob/main/README.md) and [docs](https://github.com/NVIDIAGameWorks/KickstartRT/tree/main/docs) in the KickstartRT SDK repository, that includes requirement for other dependent SDKs and the GPU.
 
 #### Build Steps
