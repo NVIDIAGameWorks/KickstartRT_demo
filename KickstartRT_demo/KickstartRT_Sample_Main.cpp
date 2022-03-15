@@ -57,10 +57,11 @@
 #include <donut/app/imgui_renderer.h>
 #include <nvrhi/utils.h>
 #include <nvrhi/common/misc.h>
+#ifdef WIN32
 #include <nvrhi/d3d12.h>
 #include <nvrhi/d3d11.h>
-
-#include "KickStartRT_Composite.h"
+#endif
+#include "KickstartRT_Composite.h"
 
 #ifdef DONUT_WITH_TASKFLOW
 #include <taskflow/taskflow.hpp>
@@ -74,7 +75,7 @@
 #define KickstartRT_Graphics_API_D3D12
 #endif
 #define KickstartRT_Graphics_API_Vulkan
-#include "KickStartRT.h"
+#include "KickstartRT.h"
 namespace SDK = KickstartRT;
 #endif
 
@@ -3749,7 +3750,7 @@ public:
                         rtTask.common.viewport.maxDepth = 1.0;
                     }
                     {
-                        auto& invMat = m_View->GetInverseProjectionMatrix();
+                        const auto& invMat = m_View->GetInverseProjectionMatrix();
                         memcpy(rtTask.common.clipToViewMatrix.f, invMat.m_data, sizeof(float) * 16);
                     }
                     {
@@ -4557,13 +4558,18 @@ public:
 
             if (++i % 100 == 0) {
                 KickstartRT::ResourceAllocations allocationInfo;
+#ifdef KickstartRT_Graphics_API_D3D11
                 if (m_SDKContext.m_11)
                     m_SDKContext.m_11->m_executeContext->GetCurrentResourceAllocations(&allocationInfo);
+#endif
+#ifdef KickstartRT_Graphics_API_D3D12
                 if (m_SDKContext.m_12)
                     m_SDKContext.m_12->m_executeContext->GetCurrentResourceAllocations(&allocationInfo);
+#endif
+#ifdef KickstartRT_Graphics_API_VK
                 if (m_SDKContext.m_vk)
                     m_SDKContext.m_vk->m_executeContext->GetCurrentResourceAllocations(&allocationInfo);
-
+#endif
                 size_t totalNum = 0;
                 for (size_t num : allocationInfo.m_numResources) {
                     totalNum += num;

@@ -26,7 +26,7 @@ file(GLOB KickstartRT_Demo_source
 
 add_executable(KickstartRT_Demo WIN32 ${KickstartRT_Demo_source})
 
-set (KickstartRT_SDK_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../kickstartrt)
+set (KickstartRT_SDK_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../KickstartRT)
 set (KickstartRT_SDK_NAME KickstartRT)
 
 if (WIN32)
@@ -35,11 +35,20 @@ set (KickstartRT_Libs
     ${KickstartRT_SDK_NAME}_D3D12
     ${KickstartRT_SDK_NAME}_Interop_D3D11
 )
+set (KickstartRT_Deps
+    KickstartRT_core_DX12 
+    KickstartRT_core_VULKAN 
+    KickstartRT_Interop_D3D11
+)
 else()
 set (KickstartRT_Libs 
     ${KickstartRT_SDK_NAME}_VK
 )
+set (KickstartRT_Deps
+    KickstartRT_core_VULKAN 
+)
 endif()
+
 target_link_libraries(KickstartRT_Demo PRIVATE 
     donut_render
     donut_app
@@ -54,11 +63,11 @@ target_include_directories(KickstartRT_Demo PRIVATE
 )
 
 target_link_directories(KickstartRT_Demo PRIVATE
-    ${CMAKE_CURRENT_BINARY_DIR}/../kickstartrt
-    ${CMAKE_CURRENT_BINARY_DIR}/../kickstartrt/interop_d3d11
+    ${CMAKE_CURRENT_BINARY_DIR}/../KickstartRT
+    ${CMAKE_CURRENT_BINARY_DIR}/../KickstartRT/interop_d3d11
 )
 
-add_dependencies(KickstartRT_Demo KickstartRT_core_DX12 KickstartRT_core_VULKAN KickstartRT_Interop_D3D11)
+add_dependencies(KickstartRT_Demo ${KickstartRT_Deps})
 
 # Copy some files into the bin directory
 if (NOT KickstartRT_PIX_EVENT_RUNTIME_SDK_PATH STREQUAL "")

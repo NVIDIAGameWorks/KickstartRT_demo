@@ -30,7 +30,7 @@
 #define ExitProcess exit
 #endif
 
-#include "KickStartRT_Composite.h"
+#include "KickstartRT_Composite.h"
 
 using namespace donut;
 using namespace donut::math;

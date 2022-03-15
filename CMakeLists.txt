@@ -98,5 +98,5 @@ if (DONUT_WITH_UNIT_TESTS)
 endif()
 
 add_subdirectory(KickstartRT)
-add_subdirectory(kickstartRT_demo)
+add_subdirectory(KickstartRT_demo)
 set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT KickstartRT_Demo)
