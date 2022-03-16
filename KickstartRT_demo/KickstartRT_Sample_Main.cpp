@@ -70,13 +70,22 @@
 #define ENABLE_KickStartSDK
 
 #if defined(ENABLE_KickStartSDK)
-#ifdef WIN32
+#if KickstartRT_Demo_WITH_D3D11
 #define KickstartRT_Graphics_API_D3D11
+#endif
+#if KickstartRT_Demo_WITH_D3D12
 #define KickstartRT_Graphics_API_D3D12
 #endif
+#if KickstartRT_Demo_WITH_VK
 #define KickstartRT_Graphics_API_Vulkan
+#endif
 #include "KickstartRT.h"
 namespace SDK = KickstartRT;
+
+#else
+#undef KickstartRT_Demo_WITH_D3D11
+#undef KickstartRT_Demo_WITH_D3D11
+#undef KickstartRT_Demo_WITH_VK
 #endif
 
 using namespace donut;
@@ -292,7 +301,6 @@ struct UIData
     struct KickstartRT_Settings {
         bool            m_enableDebugSubViews = false;
 
-        bool            m_enableCheckerboard = true;
         bool            m_enableReflection = true;
         bool            m_enableTransparentReflection = false;
         bool            m_enableGI = true;
@@ -303,9 +311,17 @@ struct UIData
         bool            m_enableDirectLightingSample = true;
         uint32_t        m_debugDisp = 0;
         bool            m_destructGeom = false;
+#if KickstartRT_Demo_WITH_NRD
+        bool            m_enableCheckerboard = true;
         uint32_t        m_denoisingMethod = 2;
         uint32_t        m_aoDenoisingMethod = 1;
         uint32_t        m_shadowDenoisingMethod = 1;
+#else
+        bool            m_enableCheckerboard = false;
+        uint32_t        m_denoisingMethod = 0;
+        uint32_t        m_aoDenoisingMethod = 0;
+        uint32_t        m_shadowDenoisingMethod = 0;
+#endif
         bool            m_denoisingReset = false;
         bool            m_enableCameraJitter = false;
         bool            m_enableLateLightInjection = false;
@@ -339,19 +355,19 @@ struct KickstartRT_SDK_Context
 {
     struct GeomHandleType {
         std::shared_ptr<donut::engine::MeshGeometry> m_geomPtr;
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
         struct D3D11 {
             SDK::D3D11::BVHTask::GeometryTask   m_gTask;
         };
         D3D11 m_11;
 #endif
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
         struct D3D12 {
             SDK::D3D12::BVHTask::GeometryTask   m_gTask;
         };
         D3D12 m_12;
 #endif
-#ifdef KickstartRT_Graphics_API_Vulkan
+#ifdef KickstartRT_Demo_WITH_VK
         struct VK {
             SDK::VK::BVHTask::GeometryTask   m_gTask;
         };
@@ -361,19 +377,19 @@ struct KickstartRT_SDK_Context
     struct InstanceHandleType {
         std::shared_ptr<donut::engine::MeshInstance>    m_insPtr;
         GeomHandleType*                                 m_geomHandle = nullptr;
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
         struct D3D11 {
             std::vector<SDK::D3D11::BVHTask::InstanceTask>   m_iTasks;
         };
         D3D11 m_11;
 #endif
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
         struct D3D12 {
             std::vector<SDK::D3D12::BVHTask::InstanceTask>   m_iTasks;
         };
         D3D12 m_12;
 #endif
-#ifdef KickstartRT_Graphics_API_Vulkan
+#ifdef KickstartRT_Demo_WITH_VK
         struct VK {
             std::vector<SDK::VK::BVHTask::InstanceTask>   m_iTasks;
         };
@@ -382,13 +398,13 @@ struct KickstartRT_SDK_Context
     };
     
     struct DenoisingHandle {
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
         SDK::D3D11::DenoisingContextHandle m_11 = SDK::D3D11::DenoisingContextHandle::Null;
 #endif
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
         SDK::D3D12::DenoisingContextHandle m_12 = SDK::D3D12::DenoisingContextHandle::Null;
 #endif
-#ifdef KickstartRT_Graphics_API_Vulkan
+#ifdef KickstartRT_Demo_WITH_VK
         SDK::VK::DenoisingContextHandle m_VK = SDK::VK::DenoisingContextHandle::Null;
 #endif
     };
@@ -396,18 +412,18 @@ struct KickstartRT_SDK_Context
     using InstanceHandle = std::unique_ptr<InstanceHandleType>;
 
     struct TaskContainer {
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
         SDK::D3D11::TaskContainer* m_11 = nullptr;
 #endif
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
         SDK::D3D12::TaskContainer* m_12 = nullptr;
 #endif
-#ifdef KickstartRT_Graphics_API_Vulkan
+#ifdef KickstartRT_Demo_WITH_VK
         SDK::VK::TaskContainer* m_VK = nullptr;
 #endif
     };
 
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
     struct D3D11 {
         SDK::D3D11::ExecuteContext*         m_executeContext = nullptr;
         uint64_t                            m_interopFenceValue = 0;
@@ -424,7 +440,7 @@ struct KickstartRT_SDK_Context
     };
     std::unique_ptr<D3D11>   m_11;
 #endif
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
     struct D3D12 {
         nvrhi::RefCountPtr<ID3D12Device5>               m_dev5;
         SDK::D3D12::ExecuteContext*                     m_executeContext = nullptr;
@@ -444,7 +460,7 @@ struct KickstartRT_SDK_Context
     };
     std::unique_ptr<D3D12>   m_12;
 #endif
-#ifdef KickstartRT_Graphics_API_Vulkan
+#ifdef KickstartRT_Demo_WITH_VK
     struct VK {
         SDK::VK::ExecuteContext* 						                m_executeContext = nullptr;
         std::deque< std::pair<SDK::VK::GPUTaskHandle, uint32_t>>  m_tasksInFlight;
@@ -480,15 +496,15 @@ struct KickstartRT_SDK_Context
 public:
     ~KickstartRT_SDK_Context()
     {
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
         if (m_11)
             m_11.reset();
 #endif
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
         if (m_12)
             m_12.reset();
 #endif
-#ifdef KickstartRT_Graphics_API_Vulkan
+#ifdef KickstartRT_Demo_WITH_VK
         if (m_vk)
             m_vk.reset();
 #endif
@@ -629,7 +645,7 @@ public:
 
         m_ui.KS.m_useTraceRayInline &= GetDevice()->queryFeatureSupport(nvrhi::Feature::RayQuery);
 
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
 		if (GetDevice()->getGraphicsAPI() == nvrhi::GraphicsAPI::D3D11) {
 			SDK::D3D11::ExecuteContext_InitSettings settings = {};
 			settings.D3D11Device = reinterpret_cast<ID3D11Device*>(GetDevice()->getNativeObject(nvrhi::ObjectTypes::D3D11_Device).pointer);
@@ -663,7 +679,7 @@ public:
             }
 		}
 #endif
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
         if (GetDevice()->getGraphicsAPI() == nvrhi::GraphicsAPI::D3D12) {
             m_SDKContext.m_12 = std::make_unique<KickstartRT_SDK_Context::D3D12>();
 
@@ -705,7 +721,7 @@ public:
             }
         }
 #endif
-#ifdef KickstartRT_Graphics_API_Vulkan
+#ifdef KickstartRT_Demo_WITH_VK
         if (GetDevice()->getGraphicsAPI() == nvrhi::GraphicsAPI::VULKAN) {
             m_SDKContext.m_vk = std::make_unique<KickstartRT_SDK_Context::VK>();
 
@@ -896,7 +912,7 @@ public:
         // request to destruct all geom and instance.
         // Remove all the current geometries after GPU - CPU sync.
         GetDevice()->waitForIdle();
-#if defined(KickstartRT_Graphics_API_D3D12)
+#if defined(KickstartRT_Demo_WITH_D3D12)
         if (m_SDKContext.m_12) {
             for (auto it = m_SDKContext.m_12->m_tasksInFlight.begin(); it != m_SDKContext.m_12->m_tasksInFlight.end();) {
                 auto sts = m_SDKContext.m_12->m_executeContext->MarkGPUTaskAsCompleted(it->first);
@@ -912,7 +928,7 @@ public:
             m_SDKContext.m_geomHandles.clear();
         }
 #endif
-#if defined(KickstartRT_Graphics_API_Vulkan)
+#if defined(KickstartRT_Demo_WITH_VK)
         if (m_SDKContext.m_vk) {
             for (auto it = m_SDKContext.m_vk->m_tasksInFlight.begin(); it != m_SDKContext.m_vk->m_tasksInFlight.end();) {
                 auto sts = m_SDKContext.m_vk->m_executeContext->MarkGPUTaskAsCompleted(it->first);
@@ -928,7 +944,7 @@ public:
             m_SDKContext.m_geomHandles.clear();
         }
 #endif
-#if defined(KickstartRT_Graphics_API_D3D11)
+#if defined(KickstartRT_Demo_WITH_D3D11)
         if (m_SDKContext.m_11) {
             m_SDKContext.m_11->m_executeContext->DestroyAllInstanceHandles();
             m_SDKContext.m_11->m_executeContext->DestroyAllGeometryHandles();
@@ -968,7 +984,7 @@ public:
 
         bool sharedAcrossDevice = false;
 #if defined(ENABLE_KickStartSDK)
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
         if (m_SDKContext.m_11) {
             sharedAcrossDevice = true;
         }
@@ -1320,7 +1336,7 @@ public:
         return numLights;
     }
 
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
 
     SDK::D3D11::RenderTask::ShaderResourceTex GetShaderResourceTexD3D11(nvrhi::TextureHandle texHandle) {
         auto& desc = texHandle->getDesc();
@@ -1368,7 +1384,7 @@ public:
         return _SetupLightInfos<SDK::D3D11::RenderTask::LightInfo>(lightInfos, maxLightNum);
     }
 #endif
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
 
     SDK::D3D12::RenderTask::ShaderResourceTex GetShaderResourceTexD3D12(nvrhi::TextureHandle texHandle) {
         auto& desc = texHandle->getDesc();
@@ -1418,7 +1434,7 @@ public:
         return _SetupLightInfos<SDK::D3D12::RenderTask::LightInfo>(lightInfos, maxLightNum);
     }
 #endif
-#ifdef KickstartRT_Graphics_API_Vulkan
+#ifdef KickstartRT_Demo_WITH_VK
 
     SDK::VK::RenderTask::ShaderResourceTex GetShaderResourceTexVK(nvrhi::TextureHandle texHandle) {
         auto& desc = texHandle->getDesc();
@@ -1560,22 +1576,22 @@ public:
 #if defined(ENABLE_KickStartSDK)
         SDK::Status sts;
 
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
         auto& tc_pre_11(m_SDKContext.m_tc_preLighting.m_11);
         auto& tc11(m_SDKContext.m_tc.m_11);
         auto& tc_post_11(m_SDKContext.m_tc_postLighting.m_11);
 #endif
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
         auto& tc_pre_12(m_SDKContext.m_tc_preLighting.m_12);
         auto& tc12(m_SDKContext.m_tc.m_12);
         auto& tc_post_12(m_SDKContext.m_tc_postLighting.m_12);
 #endif
-#ifdef KickstartRT_Graphics_API_Vulkan
+#ifdef KickstartRT_Demo_WITH_VK
         auto& tc_pre_VK(m_SDKContext.m_tc_preLighting.m_VK);
         auto& tcVK(m_SDKContext.m_tc.m_VK);
         auto& tc_post_VK(m_SDKContext.m_tc_postLighting.m_VK);
 #endif
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
         if (m_SDKContext.m_11) {
             if (tc_pre_11 != nullptr || tc11 != nullptr || tc_post_11 != nullptr) {
                 assert(false);
@@ -1594,7 +1610,7 @@ public:
 			}
         }
 #endif
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
         if (m_SDKContext.m_12) {
             if (tc_pre_12 != nullptr || tc12 != nullptr || tc_post_12 != nullptr) {
                 assert(false);
@@ -1613,7 +1629,7 @@ public:
 			}
         }
 #endif
-#ifdef KickstartRT_Graphics_API_Vulkan
+#ifdef KickstartRT_Demo_WITH_VK
         if (m_SDKContext.m_vk) {
             if (tc_pre_VK != nullptr || tcVK != nullptr || tc_post_VK != nullptr) {
                 assert(false);
@@ -1653,33 +1669,33 @@ public:
             if (m_ui.KS.m_destructGeom) {
                 // destruct all geom once.
                 {
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
                     std::vector<SDK::D3D11::InstanceHandle> insArr11;
 #endif
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
                     std::vector<SDK::D3D12::InstanceHandle> insArr12;
 #endif
-#ifdef KickstartRT_Graphics_API_Vulkan
+#ifdef KickstartRT_Demo_WITH_VK
                     std::vector<SDK::VK::InstanceHandle> insArrVK;
 #endif
                     for (auto&& ins : m_SDKContext.m_insHandles) {
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
                         for (auto&& it : ins.second->m_11.m_iTasks) {
                             insArr11.push_back(it.handle);
                         }
 #endif
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
                         for (auto&& it : ins.second->m_12.m_iTasks) {
                             insArr12.push_back(it.handle);
                         }
 #endif
-#ifdef KickstartRT_Graphics_API_Vulkan
+#ifdef KickstartRT_Demo_WITH_VK
                         for (auto&& it : ins.second->m_VK.m_iTasks) {
                             insArrVK.push_back(it.handle);
                         }
 #endif
                     }
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
                     if (insArr11.size() > 0) {
                         sts = m_SDKContext.m_11->m_executeContext->DestroyInstanceHandles(insArr11.data(), (uint32_t)insArr11.size());
                         if (sts != SDK::Status::OK) {
@@ -1687,7 +1703,7 @@ public:
                         }
                     }
 #endif
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
                     if (insArr12.size() > 0) {
                         sts = m_SDKContext.m_12->m_executeContext->DestroyInstanceHandles(insArr12.data(), (uint32_t)insArr12.size());
                         if (sts != SDK::Status::OK) {
@@ -1695,7 +1711,7 @@ public:
                         }
                     }
 #endif
-#ifdef KickstartRT_Graphics_API_Vulkan
+#ifdef KickstartRT_Demo_WITH_VK
                     if (insArrVK.size() > 0) {
                         sts = m_SDKContext.m_vk->m_executeContext->DestroyInstanceHandles(insArrVK.data(), (uint32_t)insArrVK.size());
                         if (sts != SDK::Status::OK) {
@@ -1703,27 +1719,27 @@ public:
                         }
                     }
 #endif
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
                     std::vector<SDK::D3D11::GeometryHandle> geoArr11;
 #endif
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
                     std::vector<SDK::D3D12::GeometryHandle> geoArr12;
 #endif
-#ifdef KickstartRT_Graphics_API_Vulkan
+#ifdef KickstartRT_Demo_WITH_VK
                     std::vector<SDK::VK::GeometryHandle> geoArrVK;
 #endif
                     for (auto&& geo : m_SDKContext.m_geomHandles) {
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
                         geoArr11.push_back(geo.second->m_11.m_gTask.handle);
 #endif
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
                         geoArr12.push_back(geo.second->m_12.m_gTask.handle);
 #endif
-#ifdef KickstartRT_Graphics_API_Vulkan
+#ifdef KickstartRT_Demo_WITH_VK
                         geoArrVK.push_back(geo.second->m_VK.m_gTask.handle);
 #endif
                     }
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
                     if (geoArr11.size() > 0 && m_SDKContext.m_11) {
                         sts = m_SDKContext.m_11->m_executeContext->DestroyGeometryHandles(geoArr11.data(), (uint32_t)geoArr11.size());
                         if (sts != SDK::Status::OK) {
@@ -1731,7 +1747,7 @@ public:
                         }
                     }
 #endif
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
                     if (geoArr12.size() > 0 && m_SDKContext.m_12) {
                         sts = m_SDKContext.m_12->m_executeContext->DestroyGeometryHandles(geoArr12.data(), (uint32_t)geoArr12.size());
                         if (sts != SDK::Status::OK) {
@@ -1739,7 +1755,7 @@ public:
                         }
                     }
 #endif
-#ifdef KickstartRT_Graphics_API_Vulkan
+#ifdef KickstartRT_Demo_WITH_VK
                     if (geoArrVK.size() > 0 && m_SDKContext.m_vk) {
                         sts = m_SDKContext.m_vk->m_executeContext->DestroyGeometryHandles(geoArrVK.data(), (uint32_t)geoArrVK.size());
                         if (sts != SDK::Status::OK) {
@@ -1772,15 +1788,15 @@ public:
                         isSkinnedMesh = true;
                     }
 
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
                     ID3D11Buffer* indexBuf11 = reinterpret_cast<ID3D11Buffer*>(ptr->buffers->indexBuffer->getNativeObject(nvrhi::ObjectTypes::D3D11_Buffer).pointer);
                     ID3D11Buffer* vertexBuf11 = reinterpret_cast<ID3D11Buffer*>(ptr->buffers->vertexBuffer->getNativeObject(nvrhi::ObjectTypes::D3D11_Buffer).pointer);
 #endif
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
                     ID3D12Resource* indexBuf12 = reinterpret_cast<ID3D12Resource*>(ptr->buffers->indexBuffer->getNativeObject(nvrhi::ObjectTypes::D3D12_Resource).pointer);
                     ID3D12Resource* vertexBuf12 = reinterpret_cast<ID3D12Resource*>(ptr->buffers->vertexBuffer->getNativeObject(nvrhi::ObjectTypes::D3D12_Resource).pointer);
 #endif
-#ifdef KickstartRT_Graphics_API_Vulkan
+#ifdef KickstartRT_Demo_WITH_VK
                     VkBuffer indexBufVK = reinterpret_cast<VkBuffer>(ptr->buffers->indexBuffer->getNativeObject(nvrhi::ObjectTypes::VK_Buffer).pointer);
                     VkBuffer vertexBufVK = reinterpret_cast<VkBuffer>(ptr->buffers->vertexBuffer->getNativeObject(nvrhi::ObjectTypes::VK_Buffer).pointer);
 #endif
@@ -1798,7 +1814,7 @@ public:
                         if (ghItr == m_SDKContext.m_geomHandles.end()) {
                             KickstartRT_SDK_Context::GeomHandle gh = std::make_unique<KickstartRT_SDK_Context::GeomHandleType>();
 
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
                             if (tc_pre_11 != nullptr) {
                                 gh->m_11.m_gTask.taskOperation = SDK::D3D11::BVHTask::TaskOperation::Register;
                                 gh->m_11.m_gTask.handle = m_SDKContext.m_11->m_executeContext->CreateGeometryHandle();
@@ -1831,7 +1847,7 @@ public:
                                 input.tileResolutionLimit = m_ui.KS.m_tileResolutionLimit;
                             }
 #endif
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
                             if (tc_pre_12 != nullptr) {
                                 gh->m_12.m_gTask.taskOperation = SDK::D3D12::BVHTask::TaskOperation::Register;
                                 gh->m_12.m_gTask.handle = m_SDKContext.m_12->m_executeContext->CreateGeometryHandle();
@@ -1864,7 +1880,7 @@ public:
                                 input.tileResolutionLimit = m_ui.KS.m_tileResolutionLimit;
                             }
 #endif
-#ifdef KickstartRT_Graphics_API_Vulkan
+#ifdef KickstartRT_Demo_WITH_VK
                             if (tc_pre_VK != nullptr) {
                                 gh->m_VK.m_gTask.taskOperation = SDK::VK::BVHTask::TaskOperation::Register;
                                 gh->m_VK.m_gTask.handle = m_SDKContext.m_vk->m_executeContext->CreateGeometryHandle();
@@ -1903,7 +1919,7 @@ public:
                     }
 
                     if (addedGeom.size() > 0) {
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
                         if (tc_pre_11 != nullptr) {
                             std::vector<SDK::D3D11::BVHTask::Task*> taskArr(addedGeom.size());
                             for (size_t i = 0; i < addedGeom.size(); ++i) {
@@ -1915,7 +1931,7 @@ public:
                             }
                         }
 #endif
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
                         if (tc_pre_12 != nullptr) {
                             std::vector<SDK::D3D12::BVHTask::Task*> taskArr(addedGeom.size());
                             for (size_t i = 0; i < addedGeom.size(); ++i) {
@@ -1927,7 +1943,7 @@ public:
                             }
                         }
 #endif
-#ifdef KickstartRT_Graphics_API_Vulkan
+#ifdef KickstartRT_Demo_WITH_VK
                         if (tc_pre_VK != nullptr) {
                             std::vector<SDK::VK::BVHTask::Task*> taskArr(addedGeom.size());
                             for (size_t i = 0; i < addedGeom.size(); ++i) {
@@ -1968,7 +1984,7 @@ public:
                                 geometries.push_back(geomPtr);
                         }
 
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
                         if (tc_pre_11 != nullptr) {
                             ih->m_11.m_iTasks.resize(geometries.size());
 
@@ -1995,7 +2011,7 @@ public:
                             }
                         }
 #endif
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
                         if (tc_pre_12 != nullptr) {
                             ih->m_12.m_iTasks.resize(geometries.size());
 
@@ -2022,7 +2038,7 @@ public:
                             }
                         }
 #endif
-#ifdef KickstartRT_Graphics_API_Vulkan
+#ifdef KickstartRT_Demo_WITH_VK
                         if (tc_pre_VK != nullptr) {
                             ih->m_VK.m_iTasks.resize(geometries.size());
 
@@ -2055,7 +2071,7 @@ public:
                 }
 
                 if (addedIns.size() > 0) {
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
                     if (tc_pre_11 != nullptr) {
                         std::vector<SDK::D3D11::BVHTask::Task*> taskArr;
                         for (auto&& ai : addedIns) {
@@ -2069,7 +2085,7 @@ public:
                         }
                     }
 #endif
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
                     if (tc_pre_12 != nullptr) {
                         std::vector<SDK::D3D12::BVHTask::Task*> taskArr;
                         for (auto&& ai : addedIns) {
@@ -2083,7 +2099,7 @@ public:
                         }
                     }
 #endif
-#ifdef KickstartRT_Graphics_API_Vulkan
+#ifdef KickstartRT_Demo_WITH_VK
                     if (tc_pre_VK != nullptr) {
                         std::vector<SDK::VK::BVHTask::Task*> taskArr;
                         for (auto&& ai : addedIns) {
@@ -2104,13 +2120,13 @@ public:
                 }
 
                 {
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
                     std::vector<SDK::D3D11::BVHTask::Task*>  bvhTaskPtr11;
 #endif
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
                     std::vector<SDK::D3D12::BVHTask::Task*>  bvhTaskPtr12;
 #endif
-#ifdef KickstartRT_Graphics_API_Vulkan
+#ifdef KickstartRT_Demo_WITH_VK
                     std::vector<SDK::VK::BVHTask::Task*>  bvhTaskPtrVK;
 #endif
 
@@ -2123,21 +2139,21 @@ public:
                             SDK::Math::Float_4x4 mWrk;
                             math::affineToColumnMajor(node->GetLocalToWorldTransformFloat(), mWrk.f);
                             mWrk = mWrk.Transpose();
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
                             for (auto&& it : SDKIns->m_11.m_iTasks) {
                                 it.taskOperation = SDK::D3D11::BVHTask::TaskOperation::Update;
                                 it.input.transform.CopyFrom4x4(mWrk.f);
                                 bvhTaskPtr11.push_back(&it);
                             }
 #endif
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
                             for (auto&& it : SDKIns->m_12.m_iTasks) {
                                 it.taskOperation = SDK::D3D12::BVHTask::TaskOperation::Update;
                                 it.input.transform.CopyFrom4x4(mWrk.f);
                                 bvhTaskPtr12.push_back(&it);
                             }
 #endif
-#ifdef KickstartRT_Graphics_API_Vulkan
+#ifdef KickstartRT_Demo_WITH_VK
                             for (auto&& it : SDKIns->m_VK.m_iTasks) {
                                 it.taskOperation = SDK::VK::BVHTask::TaskOperation::Update;
                                 it.input.transform.CopyFrom4x4(mWrk.f);
@@ -2152,15 +2168,15 @@ public:
                             {
                                 auto* gh = SDKIns->m_geomHandle;
 
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
                                 gh->m_11.m_gTask.taskOperation = SDK::D3D11::BVHTask::TaskOperation::Update;
                                 bvhTaskPtr11.push_back(&gh->m_11.m_gTask);
 #endif
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
                                 gh->m_12.m_gTask.taskOperation = SDK::D3D12::BVHTask::TaskOperation::Update;
                                 bvhTaskPtr12.push_back(&gh->m_12.m_gTask);
 #endif
-#ifdef KickstartRT_Graphics_API_Vulkan
+#ifdef KickstartRT_Demo_WITH_VK
                                 gh->m_VK.m_gTask.taskOperation = SDK::VK::BVHTask::TaskOperation::Update;
                                 bvhTaskPtrVK.push_back(&gh->m_VK.m_gTask);
 #endif
@@ -2169,7 +2185,7 @@ public:
 
                     }
 
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
                     if (tc_pre_11 != nullptr) {
                         sts = tc_pre_11->ScheduleBVHTasks(bvhTaskPtr11.data(), (uint32_t)bvhTaskPtr11.size());
                         if (sts != SDK::Status::OK) {
@@ -2177,7 +2193,7 @@ public:
                         }
                     }
 #endif
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
                     if (tc_pre_12 != nullptr) {
                         sts = tc_pre_12->ScheduleBVHTasks(bvhTaskPtr12.data(), (uint32_t)bvhTaskPtr12.size());
                         if (sts != SDK::Status::OK) {
@@ -2185,7 +2201,7 @@ public:
                         }
                     }
 #endif
-#ifdef KickstartRT_Graphics_API_Vulkan
+#ifdef KickstartRT_Demo_WITH_VK
                     if (tc_pre_VK != nullptr) {
                         sts = tc_pre_VK->ScheduleBVHTasks(bvhTaskPtrVK.data(), (uint32_t)bvhTaskPtrVK.size());
                         if (sts != SDK::Status::OK) {
@@ -2197,7 +2213,7 @@ public:
             }
 
             {
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
                 if (tc_pre_11 != nullptr) {
                     SDK::D3D11::BVHTask::BVHBuildTask bvhTask;
                     sts = tc_pre_11->ScheduleBVHTask(&bvhTask);
@@ -2206,7 +2222,7 @@ public:
                     }
                 }
 #endif
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
                 if (tc_pre_12 != nullptr) {
                     SDK::D3D12::BVHTask::BVHBuildTask bvhTask;
                     sts = tc_pre_12->ScheduleBVHTask(&bvhTask);
@@ -2215,7 +2231,7 @@ public:
                     }
                 }
 #endif
-#ifdef KickstartRT_Graphics_API_Vulkan
+#ifdef KickstartRT_Demo_WITH_VK
                 if (tc_pre_VK != nullptr) {
                     SDK::VK::BVHTask::BVHBuildTask bvhTask;
                     sts = tc_pre_VK->ScheduleBVHTask(&bvhTask);
@@ -2265,7 +2281,7 @@ public:
 
                     m_SDKContext.m_denosingContext.hash = 0;
 
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
                     if (m_SDKContext.m_11) {
                         if (m_SDKContext.m_denosingContext.specDiff.m_11 != SDK::D3D11::DenoisingContextHandle::Null) {
                             sts = m_SDKContext.m_11->m_executeContext->DestroyDenoisingContextHandle(m_SDKContext.m_denosingContext.specDiff.m_11);
@@ -2290,7 +2306,7 @@ public:
                         m_SDKContext.m_denosingContext.shadow.m_11 = SDK::D3D11::DenoisingContextHandle::Null;
                     }
 #endif
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
                     if (m_SDKContext.m_12) {
                         if (m_SDKContext.m_denosingContext.specDiff.m_12 != SDK::D3D12::DenoisingContextHandle::Null) {
                             sts = m_SDKContext.m_12->m_executeContext->DestroyDenoisingContextHandle(m_SDKContext.m_denosingContext.specDiff.m_12);
@@ -2315,7 +2331,7 @@ public:
                         m_SDKContext.m_denosingContext.shadow.m_12 = SDK::D3D12::DenoisingContextHandle::Null;
                     }
 #endif
-#ifdef KickstartRT_Graphics_API_Vulkan
+#ifdef KickstartRT_Demo_WITH_VK
                     if (m_SDKContext.m_vk) {
                         if (m_SDKContext.m_denosingContext.specDiff.m_VK != SDK::VK::DenoisingContextHandle::Null) {
                             sts = m_SDKContext.m_vk->m_executeContext->DestroyDenoisingContextHandle(m_SDKContext.m_denosingContext.specDiff.m_VK);
@@ -2346,7 +2362,7 @@ public:
 
                     m_SDKContext.m_denosingContext.hash = hash;
 
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
                     if (m_SDKContext.m_11) {
                         if (enableReflectionDenoising) {
                             SDK::D3D11::DenoisingContextInput context;
@@ -2394,7 +2410,7 @@ public:
                         }
                     }
 #endif
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
                     if (m_SDKContext.m_12) {
                         if (enableReflectionDenoising) {
                             SDK::D3D12::DenoisingContextInput context;
@@ -2442,7 +2458,7 @@ public:
                         }
                     }
 #endif
-#ifdef KickstartRT_Graphics_API_Vulkan
+#ifdef KickstartRT_Demo_WITH_VK
                     if (m_SDKContext.m_vk) {
                         if (enableReflectionDenoising) {
                             SDK::VK::DenoisingContextInput context;
@@ -2496,7 +2512,7 @@ public:
 
         // DirectLight Injection task.
         {
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
             if (m_SDKContext.m_11) {
                 SDK::D3D11::RenderTask::DirectLightingInjectionTask inputs;
 
@@ -2545,7 +2561,7 @@ public:
 				}
             }
 #endif
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
             if (m_SDKContext.m_12) {
                 SDK::D3D12::RenderTask::DirectLightingInjectionTask inputs;
 
@@ -2595,7 +2611,7 @@ public:
                 }
             }
 #endif
-#ifdef KickstartRT_Graphics_API_Vulkan
+#ifdef KickstartRT_Demo_WITH_VK
             if (m_SDKContext.m_vk) {
                 SDK::VK::RenderTask::DirectLightingInjectionTask inputs;
 
@@ -2649,7 +2665,7 @@ public:
 
         // Reflection tasks
         {
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
             if (m_SDKContext.m_11) {
                 { // Opaque main view
 
@@ -3032,7 +3048,7 @@ public:
                 }
             }
 #endif
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
             if (m_SDKContext.m_12) {
                 { // Opaque main view
 
@@ -3414,7 +3430,7 @@ public:
                 }
             }
 #endif
-#ifdef KickstartRT_Graphics_API_Vulkan
+#ifdef KickstartRT_Demo_WITH_VK
             if (m_SDKContext.m_vk) {
                 { // Opaque main view
 
@@ -3791,10 +3807,10 @@ public:
             }
 #endif
 
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
             // D3D11 need to insert render command in-between of main command list.
 #endif
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
             if (m_SDKContext.m_12) {
 
                 // Finish tasks that are done by now.
@@ -3832,7 +3848,7 @@ public:
                 tc_pre_12 = tc12 = tc_post_12 = nullptr;
             }
 #endif
-#ifdef KickstartRT_Graphics_API_Vulkan
+#ifdef KickstartRT_Demo_WITH_VK
             if (m_SDKContext.m_vk) {
                 
                 // Finish tasks that are done by now.
@@ -3873,11 +3889,11 @@ public:
 
             // Export Shader Cold Load List if needed.
             if (m_ui.KS.m_ExportShaderColdLoadListFileName.length() > 0) {
+#ifdef KickstartRT_Demo_WITH_D3D11
+#endif
+#ifdef KickstartRT_Demo_WITH_D3D12
                 std::array<uint32_t, 256>       coldListBuf;
                 size_t                          retListLen = 0;
-#ifdef KickstartRT_Graphics_API_D3D11
-#endif
-#ifdef KickstartRT_Graphics_API_D3D12
                 sts = m_SDKContext.m_12->m_executeContext->GetLoadedShaderList(coldListBuf.data(), coldListBuf.size(), &retListLen);
                 if (sts != SDK::Status::OK) {
                     log::fatal("KickStartRTX: Failed to get shader hot list. : %d", (uint32_t)sts);
@@ -3888,7 +3904,7 @@ public:
                 }
 
 #endif
-#ifdef KickstartRT_Graphics_API_Vulkan
+#ifdef KickstartRT_Demo_WITH_VK
 #endif
 
                 m_ui.KS.m_ExportShaderColdLoadListFileName.clear();
@@ -3930,7 +3946,7 @@ public:
                 {
                     bool sharedAcrossDevice = false;
 #if defined(ENABLE_KickStartSDK)
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
                     if (m_SDKContext.m_11) {
                         sharedAcrossDevice = true;
                     }
@@ -3976,7 +3992,7 @@ public:
             m_CommandListKS->open();
             m_CommandListKS_Post->open();
 
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
             if (m_SDKContext.m_12) {
                 auto nativeCL = reinterpret_cast<ID3D12CommandList*>(m_CommandListKS_PreLighting->getNativeObject(nvrhi::ObjectTypes::D3D12_GraphicsCommandList).pointer);
                 nativeCL->SetName(L"KS_PreCL");
@@ -3996,7 +4012,7 @@ public:
             RenderRTReflections();
         }
 
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
         auto RecordCommandList11 = [](ID3D11DeviceContext4* c4, KickstartRT_SDK_Context::D3D11* _11, SDK::D3D11::TaskContainer* tc) {
             c4->Signal(_11->m_interopFence.Get(), ++_11->m_interopFenceValue);
             {
@@ -4024,7 +4040,7 @@ public:
         {
             bool sharedAcrossDevice = false;
 #if defined(ENABLE_KickStartSDK)
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
             if (m_SDKContext.m_11) {
                 sharedAcrossDevice = true;
             }
@@ -4131,7 +4147,7 @@ public:
                 GetDevice()->executeCommandList(m_CommandListKS_PreLighting);
             }
             else if (GetDevice()->getGraphicsAPI() == nvrhi::GraphicsAPI::D3D11) {
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
                 // Insert fence and execute CommandList in 12 layer.
                 nvrhi::RefCountPtr<ID3D11DeviceContext4>    cntxt4;
                 {
@@ -4230,7 +4246,7 @@ public:
                 GetDevice()->executeCommandList(m_CommandListKS);
             }
             else if (GetDevice()->getGraphicsAPI() == nvrhi::GraphicsAPI::D3D11) {
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
                 // Insert fence and execute CommandList in 12 layer.
                 nvrhi::RefCountPtr<ID3D11DeviceContext4>    cntxt4;
                 {
@@ -4490,7 +4506,7 @@ public:
             GetDevice()->executeCommandList(m_CommandListKS_Post);
         }
         else if (GetDevice()->getGraphicsAPI() == nvrhi::GraphicsAPI::D3D11) {
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
             // Insert fence and execute CommandList in 12 layer.
             nvrhi::RefCountPtr<ID3D11DeviceContext4>    cntxt4;
             {
@@ -4558,11 +4574,11 @@ public:
 
             if (++i % 100 == 0) {
                 KickstartRT::ResourceAllocations allocationInfo;
-#ifdef KickstartRT_Graphics_API_D3D11
+#ifdef KickstartRT_Demo_WITH_D3D11
                 if (m_SDKContext.m_11)
                     m_SDKContext.m_11->m_executeContext->GetCurrentResourceAllocations(&allocationInfo);
 #endif
-#ifdef KickstartRT_Graphics_API_D3D12
+#ifdef KickstartRT_Demo_WITH_D3D12
                 if (m_SDKContext.m_12)
                     m_SDKContext.m_12->m_executeContext->GetCurrentResourceAllocations(&allocationInfo);
 #endif

@@ -29,43 +29,52 @@ add_executable(KickstartRT_Demo WIN32 ${KickstartRT_Demo_source})
 set (KickstartRT_SDK_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../KickstartRT)
 set (KickstartRT_SDK_NAME KickstartRT)
 
-if (WIN32)
-set (KickstartRT_Libs 
-    ${KickstartRT_SDK_NAME}_VK
-    ${KickstartRT_SDK_NAME}_D3D12
-    ${KickstartRT_SDK_NAME}_Interop_D3D11
-)
-set (KickstartRT_Deps
-    KickstartRT_core_DX12 
-    KickstartRT_core_VULKAN 
-    KickstartRT_Interop_D3D11
-)
-else()
-set (KickstartRT_Libs 
-    ${KickstartRT_SDK_NAME}_VK
-)
-set (KickstartRT_Deps
-    KickstartRT_core_VULKAN 
-)
+if (KickstartRT_SDK_WITH_DX12)
+    list(APPEND KickstartRT_Libs ${KickstartRT_SDK_NAME}_D3D12)
+    list(APPEND KickstartRT_Deps KickstartRT_core_DX12)
+    target_compile_definitions(KickstartRT_Demo PRIVATE KickstartRT_Demo_WITH_D3D12=1)
+endif()
+if (KickstartRT_SDK_WITH_Interop_DX11)
+    list(APPEND KickstartRT_Libs ${KickstartRT_SDK_NAME}_Interop_D3D11)
+    list(APPEND KickstartRT_Deps KickstartRT_Interop_D3D11)
+    target_compile_definitions(KickstartRT_Demo PRIVATE KickstartRT_Demo_WITH_D3D11=1)
+endif()
+if (KickstartRT_SDK_WITH_VULKAN)
+    list(APPEND KickstartRT_Libs ${KickstartRT_SDK_NAME}_VK)
+    list(APPEND KickstartRT_Deps KickstartRT_core_VULKAN)
+    target_compile_definitions(KickstartRT_Demo PRIVATE KickstartRT_Demo_WITH_VK=1)
+endif()
+if (KickstartRT_SDK_WITH_NRD)
+    target_compile_definitions(KickstartRT_Demo PRIVATE KickstartRT_Demo_WITH_NRD=1)
 endif()
 
-target_link_libraries(KickstartRT_Demo PRIVATE 
-    donut_render
-    donut_app
-    donut_engine
-    ${VULKAN_SDK_LIB}
-    ${KickstartRT_Libs}
-)
+if (WIN32)
+    if (NOT KickstartRT_SDK_WITH_DX12)
+        if (KickstartRT_SDK_WITH_VULKAN)
+            set_target_properties(KickstartRT_Demo PROPERTIES VS_DEBUGGER_COMMAND_ARGUMENTS "-vk")
+        endif()
+    endif()
+endif()
+
+set(KickstartRT_Demo_Libs donut_render donut_app donut_engine)
+list(APPEND KickstartRT_Demo_Libs ${KickstartRT_Libs})
+if (DONUT_WITH_VULKAN)
+    list(APPEND KickstartRT_Demo_Libs ${VULKAN_SDK_LIB})
+endif()
+
+target_link_libraries(KickstartRT_Demo PRIVATE ${KickstartRT_Demo_Libs})
 
 target_include_directories(KickstartRT_Demo PRIVATE
     ${KickstartRT_SDK_ROOT}/include
     ${KickstartRT_SDK_ROOT}/common/src
 )
 
-target_link_directories(KickstartRT_Demo PRIVATE
-    ${CMAKE_CURRENT_BINARY_DIR}/../KickstartRT
-    ${CMAKE_CURRENT_BINARY_DIR}/../KickstartRT/interop_d3d11
-)
+set(KickstartRT_Demo_LinkDir ${CMAKE_CURRENT_BINARY_DIR}/../KickstartRT)
+if (KickstartRT_SDK_WITH_Interop_DX11)
+    list(APPEND KickstartRT_Demo_LinkDir ${CMAKE_CURRENT_BINARY_DIR}/../KickstartRT/interop_d3d11)
+endif()
+
+target_link_directories(KickstartRT_Demo PRIVATE ${KickstartRT_Demo_LinkDir})
 
 add_dependencies(KickstartRT_Demo ${KickstartRT_Deps})
 
