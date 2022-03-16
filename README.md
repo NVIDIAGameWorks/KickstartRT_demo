@@ -10,7 +10,7 @@ This repository is forked from [NVIDIAGameWorks/donut](https://github.com/NVIDIA
 - [glTF-Sample-Models](https://github.com/KhronosGroup/glTF-Sample-Models.git)  
 
 # Getting started
-This application is designed to provide an example integration of the KickstartRT SDK. By using Donut framework, it handles three different graphics APIs in the same binary on Windows. You can switch the current graphics API by simply providing an argument when executing the application.  
+This application is designed to provide an example integration of the Kickstart RT SDK. By using Donut framework, it handles three different graphics APIs in the same binary on Windows. You can switch the current graphics API by simply providing an argument when executing the application.  
 In addition to browsing the sample code, we encourage you to check out the [README.md](https://github.com/NVIDIAGameWorks/KickstartRT/blob/main/README.md) and [docs](https://github.com/NVIDIAGameWorks/KickstartRT/tree/main/docs) in the KickstartRT SDK repository, that includes requirement for other dependent SDKs and the GPU.
 
 #### Build Steps
@@ -26,6 +26,75 @@ Kickstart_Demo is built using CMake, so the build instructions are pretty standa
 4. Build & Run  
     - Open the Visual Studio solution which should be generated under `build` directory and build `KickstartRT_Demo` which should be a start up project.  
     - Run `KickstartRT_Demo`, then the app should be launched and show Sponza on the window with a debug menu. You can change the using graphics API by providing an argument `-d3d12`, `-d3d11` or `-vk`.  
+
+# Where is the main()?
+The main part of the application is written in `KickstartRT_demo\KickstartRT_Sample_Main.cpp`.
+It is written in a verbose manner to support D3D11,12 and VK at the same time, but it is written as plainly as possible. It uses the three command lists to record rendering commands of Kickstart RT.
+```
+    nvrhi::CommandListHandle            m_CommandListKS_PreLighting;
+    nvrhi::CommandListHandle            m_CommandListKS;
+    nvrhi::CommandListHandle            m_CommandListKS_Post;
+```
+And, most of the interactions with the SDK are written in the following function, where it may be interesting to look into.
+```
+    void RenderRTReflections()
+```
+
+# Debug options
+Here we briefly introduce some interesting debug options. 
+- The Main Features
+  - Enable Reflections (Opaque)  
+    It enables specular reflection rendering pass by KickStart RT.
+    With Sponza, it may be less outstanding due to its materials, but you will clearly see the difference on the emblem of the green cloth at the initial point.
+  - Enable Reflections (Transparent)  
+    It enables specular reflection rendering pass for transparent materials. Unfortunately Sponza doesn't have transparent materials by default, so it's disabled by default. To render reflections on transparent surfaces, the app needs separate GBuffers to trace rays from the transparent surfaces.
+  - Enable GI  
+    It enables diffuse reflection rendering pass by KickStart RT. This is the most outstanding effect in Sponza since it has a strong directional light by default and has complicated structures of geometries so we can see the indirect diffuse bounce everywhere.
+  - Enable AO  
+    It enables ambient occlusion pass by KickStart RT. Notice that this application has two AO passes that are a conventional SSAO and a RTAO by KickStart RT. RTAO has longer AO radius and it precisely calcurate AO term on the edge of screen space, besides the SSAO picks more detailed AO with shorter AO radius.
+  - RT Shadows  
+    It enables RT shadow passes by KickStart RT. Unfortunately, Sponza only has  a simple directional light, so that it's hard to define the benefit from RT shadow, so, it's disabled by default. It can be enabled anytime and once you introduce an area light or multiple light souces, it acts better than conventional shadows maps.
+    
+  - Enable Checkerbord  
+    It enabled checkerboard rendering in KickStart RT render pass. This option reduces the number of rays in half to render specular, diffuse reflections and AO. You may see a big performance difference with minimal compromise on rendering qualities, especially when using a mid-range video cards. 
+
+- Denoising Features  
+  You can select denoising method for each rendering pass. For more detail, it may good to refer [NVIDIA Real-time Denoisers](https://github.com/NVIDIAGameWorks/RayTracingDenoiser)
+
+- Enable Debug Sub Views  
+  This option will show you sub-views of G-Buffer and intermediate rendering results of Kickstart RT.
+
+- Debug Disp  
+  - Direct Lighting Cache  
+    This option will show you the current value of direct lighting cache. It is recommended to disable denoising feature when you want to look it precisely. You may see flickering on large tiles or on the boundaries where the intensity is radically changing, which is expected because Kickstart RT doesn't manage the race condition when injecting colors (G-Buffer) into direct lighting cache in world space. With this view mode, it is also interesting to change `Surfel mode` and `Tile unit length` to see various setting for the direct lighting cache.
+
+  - Random Tile Color  
+    This option will show you the direct lighting cache with randomized color to visualize its distributions.
+
+  - MeshColor  
+    This option is only valid with 'Mesh color' surfel mode. The RGB color visualizes the classification of direct lighting cache of mesh color. Red means the cache for the interior of a triangle. Green means the cache for the edge of a primitive and shared with other primitives that share the edge. Blue means the cache for a vertex of a triangle, shared with other primitives that share the vertex.
+
+- Enable Global Roughness  
+  This option will override all roughness value with the specified value. It's good to see how specular reflection works regardless of the material in the scene.
+
+- Enable Global Metalness  
+  This option will override all metalness value with the specified value. It's good to see how specular reflection works regardless of the material in the scene.
+
+- Surfel Mode  
+  - WarpedBarycentricStorage  
+    With this mode, direct lighting cache is allocated along the edge lengths of a primitive and `Tile Unit Length`, and assigned an allocated (logically) quad-shape buffer to a triangle primitive with simple warping math. In this mode, cache allocation and evaluation are relatively simple when comparing to `Mesh Color` mode. But it is unable to interpolate direct lighting cache values over surfaces.  
+
+  - MeshColor  
+    With this mode, direct lighting cache is allocated based on an idea of [Mesh Colors](http://www.cemyuksel.com/research/meshcolors/) and `Tile Unit Length`. In this mode, cache allocation and evaluation are little complicated against the mode above, but the cache value can be interpolated over the surface since it manages caches on vertices and edges separately from the interior of a primitive.   
+
+- Fast Accumulation  
+  As we mentioned before, when injecting direct lighting (G-Buffer) into the direct lighting cache, Kickstart RT doesn't manage the race condition, instead, it uses exponential moving average when updating the cache value to alleviate flickering and average out the value. However, when a new geometry is introduced in the scene, it's good to capture direct lighting information as fast as it can. So, at the first time injection, the SDK can set a flag to store the value directly without interpolations. You can see the difference in how quickly the cache value converges when you toggling this flag multiple times.
+
+- Tile Unit Length  
+  This value is used to determine the direct lighting cache resolutions. It is decided based on the edge length (in WarpedBaryCentryStorage mode) or surface area(in MeshColor mode) with this value.
+
+- Tile resolution limit  
+  This value defines the upper limit of the cache resolutions. Some scenes have pretty huge primitives and they will result in a huge buffer allocation in the SDK. This value is to avoid a sudden huge buffer allocation by such primitives.
 
 ----
 
