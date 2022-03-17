@@ -87,9 +87,6 @@ Here we briefly introduce some interesting debug options.
   - MeshColor  
     With this mode, direct lighting cache is allocated based on an idea of [Mesh Colors](http://www.cemyuksel.com/research/meshcolors/) and `Tile Unit Length`. In this mode, cache allocation and evaluation are little complicated against the mode above, but the cache value can be interpolated over the surface since it manages caches on vertices and edges separately from the interior of a primitive.   
 
-- Fast Accumulation  
-  As we mentioned before, when injecting direct lighting (G-Buffer) into the direct lighting cache, Kickstart RT doesn't manage the race condition, instead, it uses exponential moving average when updating the cache value to alleviate flickering and average out the value. However, when a new geometry is introduced in the scene, it's good to capture direct lighting information as fast as it can. So, at the first time injection, the SDK can set a flag to store the value directly without interpolations. You can see the difference in how quickly the cache value converges when you toggling this flag multiple times.
-
 - Tile Unit Length  
   This value is used to determine the direct lighting cache resolutions. It is decided based on the edge length (in WarpedBaryCentryStorage mode) or surface area(in MeshColor mode) with this value.
 

@@ -337,7 +337,6 @@ struct UIData
         bool            m_enableGlobalMetalness = false;
         float           m_globalMetalness = 1.0f;
         bool            m_useTraceRayInline = true;
-        bool            m_enableFastAccumlation = true;
 
         bool            m_forceDirectTileMapping = false;
         uint32_t        m_surfelSampleMode = 0;
@@ -2517,7 +2516,6 @@ public:
                 SDK::D3D11::RenderTask::DirectLightingInjectionTask inputs;
 
                 inputs.useInlineRT = m_ui.KS.m_useTraceRayInline;
-                inputs.enableFastAccumlation = m_ui.KS.m_enableFastAccumlation;
 
                 inputs.depth.tex = GetShaderResourceTexD3D11(m_RenderTargets[Layer::Opaque]->GBufferWorldPosition);
                 inputs.depth.type = SDK::D3D11::RenderTask::DepthType::RGB_WorldSpace;
@@ -2566,7 +2564,6 @@ public:
                 SDK::D3D12::RenderTask::DirectLightingInjectionTask inputs;
 
                 inputs.useInlineRT = m_ui.KS.m_useTraceRayInline;
-                inputs.enableFastAccumlation = m_ui.KS.m_enableFastAccumlation;
 
                 inputs.depth.tex = GetShaderResourceTexD3D12(m_RenderTargets[Layer::Opaque]->GBufferWorldPosition);
                 inputs.depth.type = SDK::D3D12::RenderTask::DepthType::RGB_WorldSpace;
@@ -2616,7 +2613,6 @@ public:
                 SDK::VK::RenderTask::DirectLightingInjectionTask inputs;
 
                 inputs.useInlineRT = m_ui.KS.m_useTraceRayInline;
-                inputs.enableFastAccumlation = m_ui.KS.m_enableFastAccumlation;
 
                 inputs.depth.tex = GetShaderResourceTexVK(m_RenderTargets[Layer::Opaque]->GBufferWorldPosition);
                 inputs.depth.type = SDK::VK::RenderTask::DepthType::RGB_WorldSpace;
@@ -5048,10 +5044,6 @@ protected:
                 }
                 ImGui::EndCombo();
             }
-        }
-
-        if (ImGui::Checkbox("Fast Accumulation", &m_ui.KS.m_enableFastAccumlation)) {
-            m_ui.KS.m_destructGeom = true;
         }
 
 		if (!m_ui.KS.m_forceDirectTileMapping) {
