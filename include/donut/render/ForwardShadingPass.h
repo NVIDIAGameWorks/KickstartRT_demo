@@ -111,7 +111,7 @@ namespace donut::render
         bool m_TrackLiveness = true;
         std::mutex m_Mutex;
 
-        std::unordered_map<std::pair<nvrhi::ITexture*, nvrhi::ITexture*>, nvrhi::BindingSetHandle> m_LightBindingSets;
+        std::unordered_map<size_t, nvrhi::BindingSetHandle> m_LightBindingSets;
         
         std::shared_ptr<engine::CommonRenderPasses> m_CommonPasses;
         std::shared_ptr<engine::MaterialBindingCache> m_MaterialBindings;
@@ -123,7 +123,8 @@ namespace donut::render
         virtual nvrhi::BindingLayoutHandle CreateViewBindingLayout();
         virtual nvrhi::BindingSetHandle CreateViewBindingSet();
         virtual nvrhi::BindingLayoutHandle CreateLightBindingLayout();
-        virtual nvrhi::BindingSetHandle CreateLightBindingSet(nvrhi::ITexture* shadowMapTexture, nvrhi::ITexture* diffuse, nvrhi::ITexture* specular, nvrhi::ITexture* environmentBrdf);
+        virtual nvrhi::BindingSetHandle CreateLightBindingSet(nvrhi::ITexture* shadowMapTexture, nvrhi::ITexture* diffuse, nvrhi::ITexture* specular, nvrhi::ITexture* environmentBrdf,
+            nvrhi::ITexture* rtTransReflections, nvrhi::ITexture* rtTransDepth);
         virtual std::shared_ptr<engine::MaterialBindingCache> CreateMaterialBindingCache(engine::CommonRenderPasses& commonPasses);
         virtual nvrhi::GraphicsPipelineHandle CreateGraphicsPipeline(PipelineKey key, nvrhi::IFramebuffer* framebuffer);
         
@@ -144,7 +145,9 @@ namespace donut::render
             const std::vector<std::shared_ptr<engine::Light>>& lights,
             dm::float3 ambientColorTop,
             dm::float3 ambientColorBottom,
-            const std::vector<std::shared_ptr<engine::LightProbe>>& lightProbes);
+            const std::vector<std::shared_ptr<engine::LightProbe>>& lightProbes,
+            nvrhi::ITexture* rtTransReflections,
+            nvrhi::ITexture* rtTransDepth);
 
         // IGeometryPass implementation
 

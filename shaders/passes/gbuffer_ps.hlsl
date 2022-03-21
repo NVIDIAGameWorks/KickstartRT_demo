@@ -44,9 +44,10 @@ void main(
     out float4 o_channel0 : SV_Target0,
     out float4 o_channel1 : SV_Target1,
     out float4 o_channel2 : SV_Target2,
-    out float4 o_channel3 : SV_Target3
+    out float4 o_channel3 : SV_Target3,
+    out float4 o_channel4 : SV_Target4
 #if MOTION_VECTORS
-    , out float3 o_motion : SV_Target4
+    , out float3 o_motion : SV_Target5
 #endif
 )
 {
@@ -70,6 +71,9 @@ void main(
     o_channel2.w = surface.roughness;
     o_channel3.xyz = surface.emissiveColor;
     o_channel3.w = 0;
+
+    o_channel4.xyz = i_vtx.pos.xyz;
+    o_channel4.w = 1.0;
 
 #if MOTION_VECTORS
     o_motion = GetMotionVector(i_position.xyz, i_prevWorldPos, c_GBuffer.view, c_GBuffer.viewPrev);

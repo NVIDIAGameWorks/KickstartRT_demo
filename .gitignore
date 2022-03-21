@@ -1,6 +1,5 @@
 build*/
 .vscode/
-media/
 *.tlog
 **/Debug
 CMakeCache.txt
@@ -16,8 +15,8 @@ CMakeCache.txt
 .gitattributes
 .vs/donut/*/.suo
 /.vs
-media
 **/*_d3d11.dir/*
 **/*_d3d12.dir/*
 **/*_vk.dir/*
 **/Release/*
+bin/*

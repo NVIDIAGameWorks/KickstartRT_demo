@@ -92,6 +92,8 @@ void donut::render::DeferredLightingPass::Init(const std::shared_ptr<engine::Sha
             nvrhi::BindingLayoutItem::Texture_SRV(15),
             nvrhi::BindingLayoutItem::Texture_SRV(16),
             nvrhi::BindingLayoutItem::Texture_SRV(17),
+            nvrhi::BindingLayoutItem::Texture_SRV(18),
+            nvrhi::BindingLayoutItem::Texture_SRV(19),
             nvrhi::BindingLayoutItem::Texture_UAV(0),
             nvrhi::BindingLayoutItem::Sampler(0),
             nvrhi::BindingLayoutItem::Sampler(1),
@@ -137,6 +139,7 @@ void DeferredLightingPass::Render(
     deferredConstants.ambientColorTop = float4(inputs.ambientColorTop, 0.f);
     deferredConstants.ambientColorBottom = float4(inputs.ambientColorBottom, 0.f);
     deferredConstants.enableAmbientOcclusion = (inputs.ambientOcclusion != nullptr);
+    deferredConstants.enableRTShadows = (inputs.rtShadow != nullptr);
     deferredConstants.indirectDiffuseScale = 1.f;
     deferredConstants.indirectSpecularScale = 1.f;
 
@@ -264,6 +267,8 @@ void DeferredLightingPass::Render(
             nvrhi::BindingSetItem::Texture_SRV(15, inputs.indirectSpecular ? inputs.indirectSpecular : m_CommonPasses->m_BlackTexture.Get(), nvrhi::Format::UNKNOWN, viewSubresources),
             nvrhi::BindingSetItem::Texture_SRV(16, inputs.shadowChannels ? inputs.shadowChannels : m_CommonPasses->m_BlackTexture.Get()),
             nvrhi::BindingSetItem::Texture_SRV(17, inputs.ambientOcclusion ? inputs.ambientOcclusion : m_CommonPasses->m_WhiteTexture.Get(), nvrhi::Format::UNKNOWN, viewSubresources),
+            nvrhi::BindingSetItem::Texture_SRV(18, inputs.rtShadow ? inputs.rtShadow : m_CommonPasses->m_WhiteTexture.Get(), nvrhi::Format::UNKNOWN, viewSubresources),
+            nvrhi::BindingSetItem::Texture_SRV(19, inputs.rtAmbientOcclusion ? inputs.rtAmbientOcclusion : m_CommonPasses->m_WhiteTexture.Get(), nvrhi::Format::UNKNOWN, viewSubresources),
             nvrhi::BindingSetItem::Texture_UAV(0, inputs.output, nvrhi::Format::UNKNOWN, viewSubresources),
             nvrhi::BindingSetItem::Sampler(0, m_ShadowSampler),
             nvrhi::BindingSetItem::Sampler(1, m_ShadowSamplerComparison),
