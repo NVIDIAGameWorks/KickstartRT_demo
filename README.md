@@ -18,7 +18,7 @@ Kickstart_Demo is built using CMake, so the build instructions are pretty standa
 
 ##### Windows build instructions
 1. Clone the repository  
-  `git clone –recursive https://github.com/NVIDIAGameWorks/KickstartRT_Demo`
+  `git clone -–recursive https://github.com/NVIDIAGameWorks/KickstartRT_Demo`
 2. Set up the dependent libraries  
   Refer KickstartRT SDK's [README.md](https://github.com/NVIDIAGameWorks/KickstartRT/blob/main/README.md) and set up prerequisites.
 3. CMake configure and generate projects.  
