@@ -18,7 +18,7 @@ jobs:
         with:
           path-to-signatures: 'signatures/KickstartRT_demo.json'
           path-to-document: 'https://github.com/NVIDIAGameWorks/KickstartRT_demo/blob/main/CLA.txt'
-          branch: 'donut'
+          branch: 'main'
           allowlist: nobody
           lock-pullrequest-aftermerge: true
           remote-organization-name: NVIDIAGameWorks
