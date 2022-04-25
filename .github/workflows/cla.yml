@@ -16,10 +16,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PERSONAL_ACCESS_TOKEN : ${{ secrets.CLA_ACCESS_TOKEN }}
         with:
-          path-to-signatures: 'signatures/KickstartRT_demo.json'
+          path-to-signatures: 'signatures/CLA.json'
           path-to-document: 'https://github.com/NVIDIAGameWorks/KickstartRT_demo/blob/main/CLA.txt'
-          branch: 'KickstartRT_demo'
+          branch: 'main'
           allowlist: nobody
-          lock-pullrequest-aftermerge: true
-          remote-organization-name: NVIDIAGameWorks
-          remote-repository-name: CLAs
