@@ -68,8 +68,13 @@ struct KickStart_CommonConstants
     CPP_NS uint     enableRTReflections;
     CPP_NS uint     enableRTGI;
     CPP_NS uint     enableRTAO;
-    CPP_NS uint     enableRTShadows;
+    CPP_NS uint     _pad0;
+
     CPP_NS uint     enableDebug;
+    CPP_NS uint     enableYCoCgToLienarOnRTReflections;
+    CPP_NS uint     enableYCoCgToLienarOnRTGI;
+    CPP_NS uint     _pad1;
+
 };
 
 #undef CPP_NS
@@ -122,7 +127,8 @@ public:
         nvrhi::TextureHandle gbuffer_RTGIRT,
         nvrhi::TextureHandle gbuffer_RTAORT,
         nvrhi::TextureHandle gbuffer_RTShadows,
-        bool enableDebug
+        bool enableDebug,
+        bool enableYCoCgToLinear
     );
 };
 

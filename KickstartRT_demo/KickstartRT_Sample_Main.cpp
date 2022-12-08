@@ -294,6 +294,7 @@ struct UIData
     bool                                EnableAnimations = false;
     std::shared_ptr<Material>           SelectedMaterial;
     std::shared_ptr<SceneGraphNode>     SelectedNode;
+    std::shared_ptr<MeshInstance>       SelectedMeshInstance;
     std::string                         ScreenshotFileName;
     std::shared_ptr<SceneCamera>        ActiveSceneCamera;
 
@@ -313,6 +314,7 @@ struct UIData
         bool            m_destructGeom = false;
 #if KickstartRT_Demo_WITH_NRD
         bool            m_enableCheckerboard = true;
+        float           m_maxRayLength = 1000.f;
         uint32_t        m_denoisingMethod = 2;
         uint32_t        m_aoDenoisingMethod = 1;
         uint32_t        m_shadowDenoisingMethod = 1;
@@ -337,12 +339,14 @@ struct UIData
         bool            m_enableGlobalMetalness = false;
         float           m_globalMetalness = 1.0f;
         bool            m_useTraceRayInline = true;
+        bool            m_performTransfer = false;
 
         bool            m_forceDirectTileMapping = false;
         uint32_t        m_surfelSampleMode = 0;
         uint32_t        m_surfelMode = 0;
         uint32_t        m_tileResolutionLimit = 64;
         float           m_tileUnitLength = 40.f;
+        uint32_t        m_lightInjectionStride = 8;
         std::string     m_ExportShaderColdLoadListFileName;
     };
     KickstartRT_Settings              KS;
@@ -378,19 +382,19 @@ struct KickstartRT_SDK_Context
         GeomHandleType*                                 m_geomHandle = nullptr;
 #ifdef KickstartRT_Demo_WITH_D3D11
         struct D3D11 {
-            std::vector<SDK::D3D11::BVHTask::InstanceTask>   m_iTasks;
+            SDK::D3D11::BVHTask::InstanceTask   m_iTask;
         };
         D3D11 m_11;
 #endif
 #ifdef KickstartRT_Demo_WITH_D3D12
         struct D3D12 {
-            std::vector<SDK::D3D12::BVHTask::InstanceTask>   m_iTasks;
+            SDK::D3D12::BVHTask::InstanceTask   m_iTask;
         };
         D3D12 m_12;
 #endif
 #ifdef KickstartRT_Demo_WITH_VK
         struct VK {
-            std::vector<SDK::VK::BVHTask::InstanceTask>   m_iTasks;
+            SDK::VK::BVHTask::InstanceTask      m_iTask;
         };
         VK m_VK;
 #endif
@@ -485,8 +489,18 @@ struct KickstartRT_SDK_Context
         uint64_t hash = 0;
     };
 
-    std::map<donut::engine::MeshGeometry*, GeomHandle>      m_geomHandles;
+    struct InstanceState
+    {
+        bool instanceProp_DirectLightInjectionTarget = true;
+        bool instanceProp_LightTransferSource = false;
+        bool instanceProp_LightTransferTarget = false;
+        bool instanceProp_VisibleInRT = true;
+        bool isDirty = false;
+    };
+
+    std::map<donut::engine::MeshInfo*, GeomHandle>      m_geomHandles;
     std::map<donut::engine::MeshInstance*, InstanceHandle>  m_insHandles;
+    std::map<donut::engine::MeshInstance*, InstanceState>  m_insStates;
     DenoisingContexts  m_denosingContext;
     TaskContainer      m_tc_preLighting;
     TaskContainer      m_tc;
@@ -525,7 +539,9 @@ private:
     std::shared_ptr<RootFileSystem>     m_RootFs;
 	std::vector<std::string>            m_SceneFilesAvailable;
     std::string                         m_CurrentSceneName;
+public:
 	std::shared_ptr<Scene>				m_Scene;
+private:
 	std::shared_ptr<ShaderFactory>      m_ShaderFactory;
     std::shared_ptr<DirectionalLight>   m_SunLight;
     std::shared_ptr<CascadedShadowMap>  m_ShadowMap;
@@ -573,7 +589,9 @@ private:
     UIData&                             m_ui;
 
 #if defined(ENABLE_KickStartSDK)
+public:
     KickstartRT_SDK_Context               m_SDKContext;
+private:
     std::unique_ptr<KickStart_Composite>    m_SDKComposite;
 #endif
 
@@ -925,6 +943,7 @@ public:
             m_SDKContext.m_12->m_executeContext->ReleaseDeviceResourcesImmediately();
             m_SDKContext.m_insHandles.clear();
             m_SDKContext.m_geomHandles.clear();
+            m_SDKContext.m_insStates.clear();
         }
 #endif
 #if defined(KickstartRT_Demo_WITH_VK)
@@ -941,6 +960,7 @@ public:
             m_SDKContext.m_vk->m_executeContext->ReleaseDeviceResourcesImmediately();
             m_SDKContext.m_insHandles.clear();
             m_SDKContext.m_geomHandles.clear();
+            m_SDKContext.m_insStates.clear();
         }
 #endif
 #if defined(KickstartRT_Demo_WITH_D3D11)
@@ -950,6 +970,7 @@ public:
             m_SDKContext.m_11->m_executeContext->ReleaseDeviceResourcesImmediately();
             m_SDKContext.m_insHandles.clear();
             m_SDKContext.m_geomHandles.clear();
+            m_SDKContext.m_insStates.clear();
         }
 #endif
 #endif
@@ -1679,23 +1700,17 @@ public:
 #endif
                     for (auto&& ins : m_SDKContext.m_insHandles) {
 #ifdef KickstartRT_Demo_WITH_D3D11
-                        for (auto&& it : ins.second->m_11.m_iTasks) {
-                            insArr11.push_back(it.handle);
-                        }
+                        insArr11.push_back(ins.second->m_11.m_iTask.handle);
 #endif
 #ifdef KickstartRT_Demo_WITH_D3D12
-                        for (auto&& it : ins.second->m_12.m_iTasks) {
-                            insArr12.push_back(it.handle);
-                        }
+                        insArr12.push_back(ins.second->m_12.m_iTask.handle);
 #endif
 #ifdef KickstartRT_Demo_WITH_VK
-                        for (auto&& it : ins.second->m_VK.m_iTasks) {
-                            insArrVK.push_back(it.handle);
-                        }
+                        insArrVK.push_back(ins.second->m_VK.m_iTask.handle);
 #endif
                     }
 #ifdef KickstartRT_Demo_WITH_D3D11
-                    if (insArr11.size() > 0) {
+                    if (m_SDKContext.m_11 && insArr11.size() > 0) {
                         sts = m_SDKContext.m_11->m_executeContext->DestroyInstanceHandles(insArr11.data(), (uint32_t)insArr11.size());
                         if (sts != SDK::Status::OK) {
                             log::fatal("KickStartRTX: DestroyInstances() failed. : %d", (uint32_t)sts);
@@ -1703,7 +1718,7 @@ public:
                     }
 #endif
 #ifdef KickstartRT_Demo_WITH_D3D12
-                    if (insArr12.size() > 0) {
+                    if (m_SDKContext.m_12 && insArr12.size() > 0) {
                         sts = m_SDKContext.m_12->m_executeContext->DestroyInstanceHandles(insArr12.data(), (uint32_t)insArr12.size());
                         if (sts != SDK::Status::OK) {
                             log::fatal("KickStartRTX: DestroyInstances() failed. : %d", (uint32_t)sts);
@@ -1711,7 +1726,7 @@ public:
                     }
 #endif
 #ifdef KickstartRT_Demo_WITH_VK
-                    if (insArrVK.size() > 0) {
+                    if (m_SDKContext.m_vk && insArrVK.size() > 0) {
                         sts = m_SDKContext.m_vk->m_executeContext->DestroyInstanceHandles(insArrVK.data(), (uint32_t)insArrVK.size());
                         if (sts != SDK::Status::OK) {
                             log::fatal("KickStartRTX: DestroyInstances() failed. : %d", (uint32_t)sts);
@@ -1787,21 +1802,68 @@ public:
                         isSkinnedMesh = true;
                     }
 
+                    auto ghItr = m_SDKContext.m_geomHandles.find(ptr);
+                    if (ghItr != m_SDKContext.m_geomHandles.end()) {
+                        // already registerd.
+                        continue;
+                    }
+
 #ifdef KickstartRT_Demo_WITH_D3D11
+                    SDK::D3D11::BVHTask::GeometryInput input11;
+
                     ID3D11Buffer* indexBuf11 = reinterpret_cast<ID3D11Buffer*>(ptr->buffers->indexBuffer->getNativeObject(nvrhi::ObjectTypes::D3D11_Buffer).pointer);
                     ID3D11Buffer* vertexBuf11 = reinterpret_cast<ID3D11Buffer*>(ptr->buffers->vertexBuffer->getNativeObject(nvrhi::ObjectTypes::D3D11_Buffer).pointer);
 #endif
 #ifdef KickstartRT_Demo_WITH_D3D12
+                    SDK::D3D12::BVHTask::GeometryInput input12;
+
                     ID3D12Resource* indexBuf12 = reinterpret_cast<ID3D12Resource*>(ptr->buffers->indexBuffer->getNativeObject(nvrhi::ObjectTypes::D3D12_Resource).pointer);
                     ID3D12Resource* vertexBuf12 = reinterpret_cast<ID3D12Resource*>(ptr->buffers->vertexBuffer->getNativeObject(nvrhi::ObjectTypes::D3D12_Resource).pointer);
 #endif
 #ifdef KickstartRT_Demo_WITH_VK
+                    SDK::VK::BVHTask::GeometryInput inputVK;
+
                     VkBuffer indexBufVK = reinterpret_cast<VkBuffer>(ptr->buffers->indexBuffer->getNativeObject(nvrhi::ObjectTypes::VK_Buffer).pointer);
                     VkBuffer vertexBufVK = reinterpret_cast<VkBuffer>(ptr->buffers->vertexBuffer->getNativeObject(nvrhi::ObjectTypes::VK_Buffer).pointer);
 #endif
                     const auto& vrange = ptr->buffers->getVertexBufferRange(VertexAttribute::Position);
 
-                    std::vector<KickstartRT_SDK_Context::GeomHandle> addedGeom;
+#ifdef KickstartRT_Demo_WITH_D3D11
+                    if (tc_pre_11 != nullptr) {
+                        input11.allowUpdate = isSkinnedMesh;
+                        input11.type = decltype(input11)::Type::TrianglesIndexed;
+                        input11.surfelType = (decltype(input11)::SurfelType)m_ui.KS.m_surfelMode;
+                        input11.allowLightTransferTarget = true;
+
+                        input11.forceDirectTileMapping = m_ui.KS.m_forceDirectTileMapping;
+                        input11.tileUnitLength = m_ui.KS.m_tileUnitLength;
+                        input11.tileResolutionLimit = m_ui.KS.m_tileResolutionLimit;
+                    }
+#endif
+#ifdef KickstartRT_Demo_WITH_D3D12
+                    if (tc_pre_12 != nullptr) {
+                        input12.allowUpdate = isSkinnedMesh;
+                        input12.type = decltype(input12)::Type::TrianglesIndexed;
+                        input12.surfelType = (decltype(input12)::SurfelType)m_ui.KS.m_surfelMode;
+                        input12.allowLightTransferTarget = true;
+
+                        input12.forceDirectTileMapping = m_ui.KS.m_forceDirectTileMapping;
+                        input12.tileUnitLength = m_ui.KS.m_tileUnitLength;
+                        input12.tileResolutionLimit = m_ui.KS.m_tileResolutionLimit;
+                    }
+#endif
+#ifdef KickstartRT_Demo_WITH_VK
+                    if (tc_pre_VK != nullptr) {
+                        inputVK.allowUpdate = isSkinnedMesh;
+                        inputVK.type = decltype(inputVK)::Type::TrianglesIndexed;
+                        inputVK.surfelType = (decltype(inputVK)::SurfelType)m_ui.KS.m_surfelMode;
+                        inputVK.allowLightTransferTarget = true;
+
+                        inputVK.forceDirectTileMapping = m_ui.KS.m_forceDirectTileMapping;
+                        inputVK.tileUnitLength = m_ui.KS.m_tileUnitLength;
+                        inputVK.tileResolutionLimit = m_ui.KS.m_tileResolutionLimit;
+                    }
+#endif
 
                     for (auto&& geom : ptr->geometries) {
                         MeshGeometry* gPtr = geom.get();
@@ -1809,156 +1871,124 @@ public:
                         if (!ShouldIncludeMeshGeometry(*gPtr))
                             continue;
 
-                        auto ghItr = m_SDKContext.m_geomHandles.find(gPtr);
-                        if (ghItr == m_SDKContext.m_geomHandles.end()) {
+                        size_t numIdcs = gPtr->numIndices;
+                        size_t startVertexLocation = (size_t)ptr->vertexOffset + gPtr->vertexOffsetInMesh;
+                        size_t startIndexLocation = (size_t)ptr->indexOffset + gPtr->indexOffsetInMesh;
+
+#ifdef KickstartRT_Demo_WITH_D3D11
+						if (tc_pre_11 != nullptr) {
+                            decltype(input11)::GeometryComponent cmp;
+
+                            cmp.indexBuffer.resource = indexBuf11;
+                            cmp.indexBuffer.format = DXGI_FORMAT_R32_UINT;
+                            cmp.indexBuffer.offsetInBytes = startIndexLocation * sizeof(uint32_t);
+                            cmp.indexBuffer.count = (uint32_t)numIdcs;
+
+                            cmp.vertexBuffer.resource = vertexBuf11;
+                            cmp.vertexBuffer.format = DXGI_FORMAT_R32G32B32_FLOAT;
+                            cmp.vertexBuffer.offsetInBytes = vrange.byteOffset + startVertexLocation * sizeof(float) * 3;
+                            cmp.vertexBuffer.strideInBytes = sizeof(float) * 3;
+                            cmp.vertexBuffer.count = gPtr->numVertices;
+
+                            cmp.useTransform = false;
+
+                            input11.components.push_back(cmp);
+						}
+#endif
+#ifdef KickstartRT_Demo_WITH_D3D12
+						if (tc_pre_12 != nullptr) {
+                            decltype(input12)::GeometryComponent cmp;
+
+							cmp.indexBuffer.resource = indexBuf12;
+                            cmp.indexBuffer.format = DXGI_FORMAT_R32_UINT;
+                            cmp.indexBuffer.offsetInBytes = startIndexLocation * sizeof(uint32_t);
+                            cmp.indexBuffer.count = (uint32_t)numIdcs;
+
+                            cmp.vertexBuffer.resource = vertexBuf12;
+                            cmp.vertexBuffer.format = DXGI_FORMAT_R32G32B32_FLOAT;
+                            cmp.vertexBuffer.offsetInBytes = vrange.byteOffset + startVertexLocation * sizeof(float) * 3;
+                            cmp.vertexBuffer.strideInBytes = sizeof(float) * 3;
+                            cmp.vertexBuffer.count = gPtr->numVertices;
+
+                            cmp.useTransform = false;
+
+                            input12.components.push_back(cmp);
+                        }
+#endif
+#ifdef KickstartRT_Demo_WITH_VK
+						if (tc_pre_VK != nullptr) {
+                            decltype(inputVK)::GeometryComponent cmp;
+
+							cmp.indexBuffer.typedBuffer = indexBufVK;
+                            cmp.indexBuffer.format = VK_FORMAT_R32_UINT;
+                            cmp.indexBuffer.offsetInBytes = startIndexLocation * sizeof(uint32_t);
+                            cmp.indexBuffer.count = (uint32_t)numIdcs;
+
+                            cmp.vertexBuffer.typedBuffer = vertexBufVK;
+                            cmp.vertexBuffer.format = VK_FORMAT_R32G32B32_SFLOAT;
+                            cmp.vertexBuffer.offsetInBytes = vrange.byteOffset + startVertexLocation * sizeof(float) * 3;
+                            cmp.vertexBuffer.strideInBytes = sizeof(float) * 3;
+                            cmp.vertexBuffer.count = gPtr->numVertices;
+
+                            cmp.useTransform = false;
+
+                            inputVK.components.push_back(cmp);
+						}
+#endif
+                    }
+
+                    // register geom task.
+#ifdef KickstartRT_Demo_WITH_D3D11
+                    if (tc_pre_11 != nullptr) {
+                        if (input11.components.size() > 0) {
                             KickstartRT_SDK_Context::GeomHandle gh = std::make_unique<KickstartRT_SDK_Context::GeomHandleType>();
+                            gh->m_11.m_gTask.taskOperation = SDK::D3D11::BVHTask::TaskOperation::Register;
+                            gh->m_11.m_gTask.handle = m_SDKContext.m_11->m_executeContext->CreateGeometryHandle();
+                            gh->m_11.m_gTask.input = input11;
 
-#ifdef KickstartRT_Demo_WITH_D3D11
-                            if (tc_pre_11 != nullptr) {
-                                gh->m_11.m_gTask.taskOperation = SDK::D3D11::BVHTask::TaskOperation::Register;
-                                gh->m_11.m_gTask.handle = m_SDKContext.m_11->m_executeContext->CreateGeometryHandle();
-
-                                auto& input(gh->m_11.m_gTask.input);
-
-                                size_t numIdcs = gPtr->numIndices;
-                                size_t startVertexLocation = (size_t)ptr->vertexOffset + gPtr->vertexOffsetInMesh;
-                                size_t startIndexLocation = (size_t)ptr->indexOffset + gPtr->indexOffsetInMesh;
-
-                                input.indexBuffer.resource = indexBuf11;
-                                input.indexBuffer.format = DXGI_FORMAT_R32_UINT;
-                                input.indexBuffer.offsetInBytes = startIndexLocation * sizeof(uint32_t);
-                                input.indexBuffer.count = (uint32_t)numIdcs;
-
-
-                                input.vertexBuffer.resource = vertexBuf11;
-                                input.vertexBuffer.format = DXGI_FORMAT_R32G32B32_FLOAT;
-                                input.vertexBuffer.offsetInBytes = vrange.byteOffset + startVertexLocation * sizeof(float) * 3;
-                                input.vertexBuffer.strideInBytes = sizeof(float) * 3;
-                                input.vertexBuffer.count = gPtr->numVertices;
-
-                                input.allowUpdate = isSkinnedMesh;
-                                input.useTransform = false;
-                                input.type = decltype(gh->m_11.m_gTask.input)::Type::TrianglesIndexed;
-                                input.surfelType = (decltype(gh->m_11.m_gTask.input)::SurfelType)m_ui.KS.m_surfelMode;
-
-                                input.forceDirectTileMapping = m_ui.KS.m_forceDirectTileMapping;
-                                input.tileUnitLength = m_ui.KS.m_tileUnitLength;
-                                input.tileResolutionLimit = m_ui.KS.m_tileResolutionLimit;
+                            sts = tc_pre_11->ScheduleBVHTask(&gh->m_11.m_gTask);
+                            if (sts != SDK::Status::OK) {
+                                log::fatal("KickStartRTX: ScheduleBVHTasks() failed. : %d", (uint32_t)sts);
                             }
-#endif
-#ifdef KickstartRT_Demo_WITH_D3D12
-                            if (tc_pre_12 != nullptr) {
-                                gh->m_12.m_gTask.taskOperation = SDK::D3D12::BVHTask::TaskOperation::Register;
-                                gh->m_12.m_gTask.handle = m_SDKContext.m_12->m_executeContext->CreateGeometryHandle();
 
-                                auto& input(gh->m_12.m_gTask.input);
-
-                                size_t numIdcs = gPtr->numIndices;
-                                size_t startVertexLocation = (size_t)ptr->vertexOffset + gPtr->vertexOffsetInMesh;
-                                size_t startIndexLocation = (size_t)ptr->indexOffset + gPtr->indexOffsetInMesh;
-
-                                input.indexBuffer.resource = indexBuf12;
-                                input.indexBuffer.format = DXGI_FORMAT_R32_UINT;
-                                input.indexBuffer.offsetInBytes = startIndexLocation * sizeof(uint32_t);
-                                input.indexBuffer.count = (uint32_t)numIdcs;
-
-
-                                input.vertexBuffer.resource = vertexBuf12;
-                                input.vertexBuffer.format = DXGI_FORMAT_R32G32B32_FLOAT;
-                                input.vertexBuffer.offsetInBytes = vrange.byteOffset + startVertexLocation * sizeof(float) * 3;
-                                input.vertexBuffer.strideInBytes = sizeof(float) * 3;
-                                input.vertexBuffer.count = gPtr->numVertices;
-
-                                input.allowUpdate = isSkinnedMesh;
-                                input.useTransform = false;
-                                input.type = decltype(gh->m_12.m_gTask.input)::Type::TrianglesIndexed;
-                                input.surfelType = (decltype(gh->m_12.m_gTask.input)::SurfelType)m_ui.KS.m_surfelMode;
-
-                                input.forceDirectTileMapping = m_ui.KS.m_forceDirectTileMapping;
-                                input.tileUnitLength = m_ui.KS.m_tileUnitLength;
-                                input.tileResolutionLimit = m_ui.KS.m_tileResolutionLimit;
-                            }
-#endif
-#ifdef KickstartRT_Demo_WITH_VK
-                            if (tc_pre_VK != nullptr) {
-                                gh->m_VK.m_gTask.taskOperation = SDK::VK::BVHTask::TaskOperation::Register;
-                                gh->m_VK.m_gTask.handle = m_SDKContext.m_vk->m_executeContext->CreateGeometryHandle();
-
-                                auto& input(gh->m_VK.m_gTask.input);
-
-                                size_t numIdcs = gPtr->numIndices;
-                                size_t startVertexLocation = (size_t)ptr->vertexOffset + gPtr->vertexOffsetInMesh;
-                                size_t startIndexLocation = (size_t)ptr->indexOffset + gPtr->indexOffsetInMesh;
-
-                                input.indexBuffer.typedBuffer = indexBufVK;
-                                input.indexBuffer.format = VK_FORMAT_R32_UINT;
-                                input.indexBuffer.offsetInBytes = startIndexLocation * sizeof(uint32_t);
-                                input.indexBuffer.count = (uint32_t)numIdcs;
-
-
-                                input.vertexBuffer.typedBuffer = vertexBufVK;
-                                input.vertexBuffer.format = VK_FORMAT_R32G32B32_SFLOAT;
-                                input.vertexBuffer.offsetInBytes = vrange.byteOffset + startVertexLocation * sizeof(float) * 3;
-                                input.vertexBuffer.strideInBytes = sizeof(float) * 3;
-                                input.vertexBuffer.count = gPtr->numVertices;
-
-                                input.allowUpdate = isSkinnedMesh;
-                                input.useTransform = false;
-                                input.type = decltype(gh->m_VK.m_gTask.input)::Type::TrianglesIndexed;
-                                input.surfelType = (decltype(gh->m_VK.m_gTask.input)::SurfelType)m_ui.KS.m_surfelMode;
-
-                                input.forceDirectTileMapping = m_ui.KS.m_forceDirectTileMapping;
-                                input.tileUnitLength = m_ui.KS.m_tileUnitLength;
-                                input.tileResolutionLimit = m_ui.KS.m_tileResolutionLimit;
-                            }
-#endif
-                            gh->m_geomPtr = geom;
-                            addedGeom.push_back(std::move(gh));
+                            m_SDKContext.m_geomHandles.insert({ ptr, std::move(gh) });
                         }
                     }
-
-                    if (addedGeom.size() > 0) {
-#ifdef KickstartRT_Demo_WITH_D3D11
-                        if (tc_pre_11 != nullptr) {
-                            std::vector<SDK::D3D11::BVHTask::Task*> taskArr(addedGeom.size());
-                            for (size_t i = 0; i < addedGeom.size(); ++i) {
-                                taskArr[i] = &addedGeom[i]->m_11.m_gTask;
-                            }
-                            sts = tc_pre_11->ScheduleBVHTasks(taskArr.data(), (uint32_t)taskArr.size());
-                            if (sts != SDK::Status::OK) {
-                                log::fatal("KickStartRTX: ScheduleBVHTasks() failed. : %d", (uint32_t)sts);
-                            }
-                        }
 #endif
 #ifdef KickstartRT_Demo_WITH_D3D12
-                        if (tc_pre_12 != nullptr) {
-                            std::vector<SDK::D3D12::BVHTask::Task*> taskArr(addedGeom.size());
-                            for (size_t i = 0; i < addedGeom.size(); ++i) {
-                                taskArr[i] = &addedGeom[i]->m_12.m_gTask;
-                            }
-                            sts = tc_pre_12->ScheduleBVHTasks(taskArr.data(), (uint32_t)taskArr.size());
+                    if (tc_pre_12 != nullptr) {
+                        if (input12.components.size() > 0) {
+                            KickstartRT_SDK_Context::GeomHandle gh = std::make_unique<KickstartRT_SDK_Context::GeomHandleType>();
+                            gh->m_12.m_gTask.taskOperation = SDK::D3D12::BVHTask::TaskOperation::Register;
+                            gh->m_12.m_gTask.handle = m_SDKContext.m_12->m_executeContext->CreateGeometryHandle();
+                            gh->m_12.m_gTask.input = input12;
+
+                            sts = tc_pre_12->ScheduleBVHTask(&gh->m_12.m_gTask);
                             if (sts != SDK::Status::OK) {
                                 log::fatal("KickStartRTX: ScheduleBVHTasks() failed. : %d", (uint32_t)sts);
                             }
-                        }
-#endif
-#ifdef KickstartRT_Demo_WITH_VK
-                        if (tc_pre_VK != nullptr) {
-                            std::vector<SDK::VK::BVHTask::Task*> taskArr(addedGeom.size());
-                            for (size_t i = 0; i < addedGeom.size(); ++i) {
-                                taskArr[i] = &addedGeom[i]->m_VK.m_gTask;
-                            }
-                            sts = tc_pre_VK->ScheduleBVHTasks(taskArr.data(), (uint32_t)taskArr.size());
-                            if (sts != SDK::Status::OK) {
-                                log::fatal("KickStartRTX: ScheduleBVHTasks() failed. : %d", (uint32_t)sts);
-                            }
-                        }
-#endif
-                        for (size_t i = 0; i < addedGeom.size(); ++i) {
-                            MeshGeometry* geomPtr = addedGeom[i]->m_geomPtr.get();
-                            m_SDKContext.m_geomHandles.insert({ geomPtr, std::move(addedGeom[i]) });
+
+                            m_SDKContext.m_geomHandles.insert({ ptr, std::move(gh) });
                         }
                     }
+#endif
+#ifdef KickstartRT_Demo_WITH_VK
+                    if (tc_pre_VK != nullptr) {
+                        if (inputVK.components.size() > 0) {
+                            KickstartRT_SDK_Context::GeomHandle gh = std::make_unique<KickstartRT_SDK_Context::GeomHandleType>();
+                            gh->m_VK.m_gTask.taskOperation = SDK::VK::BVHTask::TaskOperation::Register;
+                            gh->m_VK.m_gTask.handle = m_SDKContext.m_vk->m_executeContext->CreateGeometryHandle();
+                            gh->m_VK.m_gTask.input = inputVK;
+
+                            sts = tc_pre_VK->ScheduleBVHTask(&gh->m_VK.m_gTask);
+                            if (sts != SDK::Status::OK) {
+                                log::fatal("KickStartRTX: ScheduleBVHTasks() failed. : %d", (uint32_t)sts);
+                            }
+
+                            m_SDKContext.m_geomHandles.insert({ ptr, std::move(gh) });
+                        }
+                    }
+#endif
                 }
             }
             {
@@ -1970,113 +2000,117 @@ public:
                     MeshInstance* ptr = itr.get();
 
                     auto ihItr = m_SDKContext.m_insHandles.find(ptr);
-                    if (ihItr == m_SDKContext.m_insHandles.end()) {
-                        KickstartRT_SDK_Context::InstanceHandle ih = std::make_unique<KickstartRT_SDK_Context::InstanceHandleType>();
+                    if (ihItr != m_SDKContext.m_insHandles.end()) {
+                        // already registered.
+                        continue;
+                    }
 
-                        MeshInfo* meshPtr = ptr->GetMesh().get();
+                    MeshInfo* meshPtr = ptr->GetMesh().get();
+                    auto ghItr = m_SDKContext.m_geomHandles.find(meshPtr);
+                    if (ghItr == m_SDKContext.m_geomHandles.end()) {
+                        log::fatal("KickStartRTX: Failed to find geometry handle when registering an instance.");
+                    }
 
-                        std::vector<std::shared_ptr<MeshGeometry>> geometries;
-                        geometries.reserve(meshPtr->geometries.size());
+                    KickstartRT_SDK_Context::InstanceHandle ih = std::make_unique<KickstartRT_SDK_Context::InstanceHandleType>();
 
-                        for (auto& geomPtr : meshPtr->geometries) {
-                            if (ShouldIncludeMeshGeometry(*geomPtr))
-                                geometries.push_back(geomPtr);
-                        }
+                    SceneGraphNode* node = ptr->GetNode();
+
+                    if (m_SDKContext.m_insStates.find(ptr) == m_SDKContext.m_insStates.end())
+                    {
+                        m_SDKContext.m_insStates.insert({ ptr, {} });
+                    }
+
+                    auto itState = m_SDKContext.m_insStates.find(ptr);
+                    assert(itState != m_SDKContext.m_insStates.end());
 
 #ifdef KickstartRT_Demo_WITH_D3D11
-                        if (tc_pre_11 != nullptr) {
-                            ih->m_11.m_iTasks.resize(geometries.size());
+					if (tc_pre_11 != nullptr) {
+                        ih->m_11.m_iTask.handle = m_SDKContext.m_11->m_executeContext->CreateInstanceHandle();
+                        ih->m_11.m_iTask.taskOperation = SDK::D3D11::BVHTask::TaskOperation::Register;
 
-                            for (size_t i = 0; i < geometries.size(); ++i) {
-                                MeshGeometry* geomPtr = geometries[i].get();
-                                auto& input(ih->m_11.m_iTasks[i].input);
+                        auto& input(ih->m_11.m_iTask.input);
+                        input.geomHandle = ghItr->second->m_11.m_gTask.handle;
+                        ih->m_geomHandle = ghItr->second.get();
+                        {
+                            SDK::Math::Float_4x4 mWrk;
+                            math::affineToColumnMajor(ptr->GetNode()->GetLocalToWorldTransformFloat(), mWrk.f);
+                            mWrk = mWrk.Transpose();
+                            input.transform.CopyFrom4x4(mWrk.f);
 
-                                ih->m_11.m_iTasks[i].handle = m_SDKContext.m_11->m_executeContext->CreateInstanceHandle();
-                                ih->m_11.m_iTasks[i].taskOperation = SDK::D3D11::BVHTask::TaskOperation::Register;
+                            SDK::D3D11::BVHTask::InstanceInclusionMask instanceInclusionMask = (SDK::D3D11::BVHTask::InstanceInclusionMask)0;
+                            if (itState->second.instanceProp_DirectLightInjectionTarget)
+                                instanceInclusionMask = (SDK::D3D11::BVHTask::InstanceInclusionMask)((uint32_t)instanceInclusionMask | (uint32_t)SDK::D3D11::BVHTask::InstanceInclusionMask::DirectLightInjectionTarget);
+                            if (itState->second.instanceProp_LightTransferSource)
+                                instanceInclusionMask = (SDK::D3D11::BVHTask::InstanceInclusionMask)((uint32_t)instanceInclusionMask | (uint32_t)SDK::D3D11::BVHTask::InstanceInclusionMask::LightTransferSource);
+                            if (itState->second.instanceProp_VisibleInRT)
+                                instanceInclusionMask = (SDK::D3D11::BVHTask::InstanceInclusionMask)((uint32_t)instanceInclusionMask | (uint32_t)SDK::D3D11::BVHTask::InstanceInclusionMask::VisibleInRT);
 
-                                auto ghItr = m_SDKContext.m_geomHandles.find(geomPtr);
-                                if (ghItr == m_SDKContext.m_geomHandles.end()) {
-                                    log::fatal("KickStartRTX: Failed to find geometry handle.");
-                                }
-                                input.geomHandle = ghItr->second->m_11.m_gTask.handle;
-                                ih->m_geomHandle = ghItr->second.get();
-
-                                {
-                                    SDK::Math::Float_4x4 mWrk;
-                                    math::affineToColumnMajor(ptr->GetNode()->GetLocalToWorldTransformFloat(), mWrk.f);
-                                    mWrk = mWrk.Transpose();
-                                    input.transform.CopyFrom4x4(mWrk.f);
-                                }
-                            }
+                            input.instanceInclusionMask = instanceInclusionMask;
                         }
+					}
 #endif
 #ifdef KickstartRT_Demo_WITH_D3D12
-                        if (tc_pre_12 != nullptr) {
-                            ih->m_12.m_iTasks.resize(geometries.size());
+					if (tc_pre_12 != nullptr) {
+						ih->m_12.m_iTask.handle = m_SDKContext.m_12->m_executeContext->CreateInstanceHandle();
+						ih->m_12.m_iTask.taskOperation = SDK::D3D12::BVHTask::TaskOperation::Register;
 
-                            for (size_t i = 0; i < geometries.size(); ++i) {
-                                MeshGeometry* geomPtr = geometries[i].get();
-                                auto& input(ih->m_12.m_iTasks[i].input);
+						auto& input(ih->m_12.m_iTask.input);
+						input.geomHandle = ghItr->second->m_12.m_gTask.handle;
+                        ih->m_geomHandle = ghItr->second.get();
+                        {
+							SDK::Math::Float_4x4 mWrk;
+							math::affineToColumnMajor(ptr->GetNode()->GetLocalToWorldTransformFloat(), mWrk.f);
+							mWrk = mWrk.Transpose();
+							input.transform.CopyFrom4x4(mWrk.f);
 
-                                ih->m_12.m_iTasks[i].handle = m_SDKContext.m_12->m_executeContext->CreateInstanceHandle();
-                                ih->m_12.m_iTasks[i].taskOperation = SDK::D3D12::BVHTask::TaskOperation::Register;
+                            SDK::D3D12::BVHTask::InstanceInclusionMask instanceInclusionMask = (SDK::D3D12::BVHTask::InstanceInclusionMask)0;
+                            if (itState->second.instanceProp_DirectLightInjectionTarget)
+                                instanceInclusionMask = (SDK::D3D12::BVHTask::InstanceInclusionMask)((uint32_t)instanceInclusionMask | (uint32_t)SDK::D3D12::BVHTask::InstanceInclusionMask::DirectLightInjectionTarget);
+                            if (itState->second.instanceProp_LightTransferSource)
+                                instanceInclusionMask = (SDK::D3D12::BVHTask::InstanceInclusionMask)((uint32_t)instanceInclusionMask | (uint32_t)SDK::D3D12::BVHTask::InstanceInclusionMask::LightTransferSource);
+                            if (itState->second.instanceProp_VisibleInRT)
+                                instanceInclusionMask = (SDK::D3D12::BVHTask::InstanceInclusionMask)((uint32_t)instanceInclusionMask | (uint32_t)SDK::D3D12::BVHTask::InstanceInclusionMask::VisibleInRT);
 
-                                auto ghItr = m_SDKContext.m_geomHandles.find(geomPtr);
-                                if (ghItr == m_SDKContext.m_geomHandles.end()) {
-                                    log::fatal("KickStartRTX: Failed to find geometry handle.");
-                                }
-                                input.geomHandle = ghItr->second->m_12.m_gTask.handle;
-                                ih->m_geomHandle = ghItr->second.get();
-
-                                {
-                                    SDK::Math::Float_4x4 mWrk;
-                                    math::affineToColumnMajor(ptr->GetNode()->GetLocalToWorldTransformFloat(), mWrk.f);
-                                    mWrk = mWrk.Transpose();
-                                    input.transform.CopyFrom4x4(mWrk.f);
-                                }
-                            }
-                        }
+                            input.instanceInclusionMask = instanceInclusionMask;
+						}
+					}
 #endif
 #ifdef KickstartRT_Demo_WITH_VK
-                        if (tc_pre_VK != nullptr) {
-                            ih->m_VK.m_iTasks.resize(geometries.size());
+                    if (tc_pre_VK != nullptr) {
+                        ih->m_VK.m_iTask.handle = m_SDKContext.m_vk->m_executeContext->CreateInstanceHandle();
+                        ih->m_VK.m_iTask.taskOperation = SDK::VK::BVHTask::TaskOperation::Register;
 
-                            for (size_t i = 0; i < geometries.size(); ++i) {
-                                MeshGeometry* geomPtr = geometries[i].get();
-                                auto& input(ih->m_VK.m_iTasks[i].input);
+                        auto& input(ih->m_VK.m_iTask.input);
+                        input.geomHandle = ghItr->second->m_VK.m_gTask.handle;
+                        ih->m_geomHandle = ghItr->second.get();
+                        {
+                            SDK::Math::Float_4x4 mWrk;
+                            math::affineToColumnMajor(ptr->GetNode()->GetLocalToWorldTransformFloat(), mWrk.f);
+                            mWrk = mWrk.Transpose();
+                            input.transform.CopyFrom4x4(mWrk.f);
 
-                                ih->m_VK.m_iTasks[i].handle = m_SDKContext.m_vk->m_executeContext->CreateInstanceHandle();
-                                ih->m_VK.m_iTasks[i].taskOperation = SDK::VK::BVHTask::TaskOperation::Register;
+                            SDK::VK::BVHTask::InstanceInclusionMask instanceInclusionMask = (SDK::VK::BVHTask::InstanceInclusionMask)0;
+                            if (itState->second.instanceProp_DirectLightInjectionTarget)
+                                instanceInclusionMask = (SDK::VK::BVHTask::InstanceInclusionMask)((uint32_t)instanceInclusionMask | (uint32_t)SDK::VK::BVHTask::InstanceInclusionMask::DirectLightInjectionTarget);
+                            if (itState->second.instanceProp_LightTransferSource)
+                                instanceInclusionMask = (SDK::VK::BVHTask::InstanceInclusionMask)((uint32_t)instanceInclusionMask | (uint32_t)SDK::VK::BVHTask::InstanceInclusionMask::LightTransferSource);
+                            if (itState->second.instanceProp_VisibleInRT)
+                                instanceInclusionMask = (SDK::VK::BVHTask::InstanceInclusionMask)((uint32_t)instanceInclusionMask | (uint32_t)SDK::VK::BVHTask::InstanceInclusionMask::VisibleInRT);
 
-                                auto ghItr = m_SDKContext.m_geomHandles.find(geomPtr);
-                                if (ghItr == m_SDKContext.m_geomHandles.end()) {
-                                    log::fatal("KickStartRTX: Failed to find geometry handle.");
-                                }
-                                input.geomHandle = ghItr->second->m_VK.m_gTask.handle;
-                                ih->m_geomHandle = ghItr->second.get();
-
-                                {
-                                    SDK::Math::Float_4x4 mWrk;
-                                    math::affineToColumnMajor(ptr->GetNode()->GetLocalToWorldTransformFloat(), mWrk.f);
-                                    mWrk = mWrk.Transpose();
-                                    input.transform.CopyFrom4x4(mWrk.f);
-                                }
-                            }
+                            input.instanceInclusionMask = instanceInclusionMask;
                         }
-#endif
-                        ih->m_insPtr = itr;
-                        addedIns.push_back(std::move(ih));
                     }
+#endif
+                    ih->m_insPtr = itr;
+                    addedIns.push_back(std::move(ih));
                 }
 
                 if (addedIns.size() > 0) {
 #ifdef KickstartRT_Demo_WITH_D3D11
                     if (tc_pre_11 != nullptr) {
                         std::vector<SDK::D3D11::BVHTask::Task*> taskArr;
-                        for (auto&& ai : addedIns) {
-                            for (auto&& i : ai->m_11.m_iTasks) {
-                                taskArr.push_back(&i);
-                            }
+						for (auto&& ai : addedIns) {
+							taskArr.push_back(&ai->m_11.m_iTask);
                         }
                         sts = tc_pre_11->ScheduleBVHTasks(taskArr.data(), (uint32_t)taskArr.size());
                         if (sts != SDK::Status::OK) {
@@ -2088,9 +2122,7 @@ public:
                     if (tc_pre_12 != nullptr) {
                         std::vector<SDK::D3D12::BVHTask::Task*> taskArr;
                         for (auto&& ai : addedIns) {
-                            for (auto&& i : ai->m_12.m_iTasks) {
-                                taskArr.push_back(&i);
-                            }
+                            taskArr.push_back(&ai->m_12.m_iTask);
                         }
                         sts = tc_pre_12->ScheduleBVHTasks(taskArr.data(), (uint32_t)taskArr.size());
                         if (sts != SDK::Status::OK) {
@@ -2102,9 +2134,7 @@ public:
                     if (tc_pre_VK != nullptr) {
                         std::vector<SDK::VK::BVHTask::Task*> taskArr;
                         for (auto&& ai : addedIns) {
-                            for (auto&& i : ai->m_VK.m_iTasks) {
-                                taskArr.push_back(&i);
-                            }
+                            taskArr.push_back(&ai->m_VK.m_iTask);
                         }
                         sts = tc_pre_VK->ScheduleBVHTasks(taskArr.data(), (uint32_t)taskArr.size());
                         if (sts != SDK::Status::OK) {
@@ -2115,6 +2145,7 @@ public:
                     for (auto&& ai : addedIns) {
                         MeshInstance* iPtr = ai->m_insPtr.get();
                         m_SDKContext.m_insHandles.insert({ iPtr, std::move(ai) });
+                        assert(m_SDKContext.m_insStates.find(iPtr) != m_SDKContext.m_insStates.end());
                     }
                 }
 
@@ -2133,29 +2164,71 @@ public:
                     {
                         auto& SDKIns(itr.second);
                         auto& meshInstance(SDKIns->m_insPtr);
-                        auto* node = meshInstance->GetNode();
-                        if (node->GetDirtyFlags() != SceneGraphNode::DirtyFlags::None) {
+                        SceneGraphNode* node = meshInstance->GetNode();
+
+                        auto itState = m_SDKContext.m_insStates.find(itr.first);
+                        assert(itState != m_SDKContext.m_insStates.end());
+
+                        if (itState->second.isDirty || node->GetDirtyFlags() != SceneGraphNode::DirtyFlags::None) {
+
+                            itState->second.isDirty = false;
+
                             SDK::Math::Float_4x4 mWrk;
                             math::affineToColumnMajor(node->GetLocalToWorldTransformFloat(), mWrk.f);
                             mWrk = mWrk.Transpose();
 #ifdef KickstartRT_Demo_WITH_D3D11
-                            for (auto&& it : SDKIns->m_11.m_iTasks) {
+                            {
+                                auto& it(SDKIns->m_11.m_iTask);
                                 it.taskOperation = SDK::D3D11::BVHTask::TaskOperation::Update;
                                 it.input.transform.CopyFrom4x4(mWrk.f);
+
+                                SDK::D3D11::BVHTask::InstanceInclusionMask instanceInclusionMask = (SDK::D3D11::BVHTask::InstanceInclusionMask)0;
+                                if (itState->second.instanceProp_DirectLightInjectionTarget)
+                                    instanceInclusionMask = (SDK::D3D11::BVHTask::InstanceInclusionMask)((uint32_t)instanceInclusionMask | (uint32_t)SDK::D3D11::BVHTask::InstanceInclusionMask::DirectLightInjectionTarget);
+                                if (itState->second.instanceProp_LightTransferSource)
+                                    instanceInclusionMask = (SDK::D3D11::BVHTask::InstanceInclusionMask)((uint32_t)instanceInclusionMask | (uint32_t)SDK::D3D11::BVHTask::InstanceInclusionMask::LightTransferSource);
+                                if (itState->second.instanceProp_VisibleInRT)
+                                    instanceInclusionMask = (SDK::D3D11::BVHTask::InstanceInclusionMask)((uint32_t)instanceInclusionMask | (uint32_t)SDK::D3D11::BVHTask::InstanceInclusionMask::VisibleInRT);
+
+                                it.input.instanceInclusionMask = instanceInclusionMask;
+
                                 bvhTaskPtr11.push_back(&it);
                             }
 #endif
 #ifdef KickstartRT_Demo_WITH_D3D12
-                            for (auto&& it : SDKIns->m_12.m_iTasks) {
+                            {
+                                auto& it(SDKIns->m_12.m_iTask);
                                 it.taskOperation = SDK::D3D12::BVHTask::TaskOperation::Update;
                                 it.input.transform.CopyFrom4x4(mWrk.f);
+                                SDK::D3D12::BVHTask::InstanceInclusionMask instanceInclusionMask = (SDK::D3D12::BVHTask::InstanceInclusionMask)0;
+                                if (itState->second.instanceProp_DirectLightInjectionTarget)
+                                    instanceInclusionMask = (SDK::D3D12::BVHTask::InstanceInclusionMask)((uint32_t)instanceInclusionMask | (uint32_t)SDK::D3D12::BVHTask::InstanceInclusionMask::DirectLightInjectionTarget);
+                                if (itState->second.instanceProp_LightTransferSource)
+                                    instanceInclusionMask = (SDK::D3D12::BVHTask::InstanceInclusionMask)((uint32_t)instanceInclusionMask | (uint32_t)SDK::D3D12::BVHTask::InstanceInclusionMask::LightTransferSource);
+                                if (itState->second.instanceProp_VisibleInRT)
+                                    instanceInclusionMask = (SDK::D3D12::BVHTask::InstanceInclusionMask)((uint32_t)instanceInclusionMask | (uint32_t)SDK::D3D12::BVHTask::InstanceInclusionMask::VisibleInRT);
+
+                                it.input.instanceInclusionMask = instanceInclusionMask;
+
                                 bvhTaskPtr12.push_back(&it);
                             }
 #endif
 #ifdef KickstartRT_Demo_WITH_VK
-                            for (auto&& it : SDKIns->m_VK.m_iTasks) {
+                            {
+                                auto& it(SDKIns->m_VK.m_iTask);
                                 it.taskOperation = SDK::VK::BVHTask::TaskOperation::Update;
                                 it.input.transform.CopyFrom4x4(mWrk.f);
+
+                                SDK::VK::BVHTask::InstanceInclusionMask instanceInclusionMask = (SDK::VK::BVHTask::InstanceInclusionMask)0;
+                                if (itState->second.instanceProp_DirectLightInjectionTarget)
+                                    instanceInclusionMask = (SDK::VK::BVHTask::InstanceInclusionMask)((uint32_t)instanceInclusionMask | (uint32_t)SDK::VK::BVHTask::InstanceInclusionMask::DirectLightInjectionTarget);
+                                if (itState->second.instanceProp_LightTransferSource)
+                                    instanceInclusionMask = (SDK::VK::BVHTask::InstanceInclusionMask)((uint32_t)instanceInclusionMask | (uint32_t)SDK::VK::BVHTask::InstanceInclusionMask::LightTransferSource);
+                                if (itState->second.instanceProp_VisibleInRT)
+                                    instanceInclusionMask = (SDK::VK::BVHTask::InstanceInclusionMask)((uint32_t)instanceInclusionMask | (uint32_t)SDK::VK::BVHTask::InstanceInclusionMask::VisibleInRT);
+
+                                it.input.instanceInclusionMask = instanceInclusionMask;
+
                                 bvhTaskPtrVK.push_back(&it);
                             }
 #endif
@@ -2516,7 +2589,7 @@ public:
                 SDK::D3D11::RenderTask::DirectLightingInjectionTask inputs;
 
                 inputs.useInlineRT = m_ui.KS.m_useTraceRayInline;
-
+                inputs.injectionResolutionStride = m_ui.KS.m_lightInjectionStride;
                 inputs.depth.tex = GetShaderResourceTexD3D11(m_RenderTargets[Layer::Opaque]->GBufferWorldPosition);
                 inputs.depth.type = SDK::D3D11::RenderTask::DepthType::RGB_WorldSpace;
 
@@ -2561,50 +2634,80 @@ public:
 #endif
 #ifdef KickstartRT_Demo_WITH_D3D12
             if (m_SDKContext.m_12) {
-                SDK::D3D12::RenderTask::DirectLightingInjectionTask inputs;
-
-                inputs.useInlineRT = m_ui.KS.m_useTraceRayInline;
-
-                inputs.depth.tex = GetShaderResourceTexD3D12(m_RenderTargets[Layer::Opaque]->GBufferWorldPosition);
-                inputs.depth.type = SDK::D3D12::RenderTask::DepthType::RGB_WorldSpace;
-
-                inputs.directLighting = GetShaderResourceTexD3D12(m_RenderTargets[Layer::Opaque]->HdrColor);
-
                 {
-                    float2 renderTargetSize = float2(m_RenderTargets[Layer::Opaque]->GetSize());
+                    SDK::D3D12::RenderTask::DirectLightingInjectionTask inputs;
 
-                    inputs.viewport.topLeftX = 0;
-                    inputs.viewport.topLeftY = 0;
-                    inputs.viewport.width = (uint32_t)renderTargetSize.x;
-                    inputs.viewport.height = (uint32_t)renderTargetSize.y;
-                    inputs.viewport.minDepth = 0.0;
-                    inputs.viewport.maxDepth = 1.0;
-                }
-                {
-                    auto& invMat = m_View->GetInverseProjectionMatrix();
-                    memcpy(inputs.clipToViewMatrix.f, invMat.m_data, sizeof(float) * 16);
-                }
-                {
-                    const dm::affine3& invAf3 = m_View->GetInverseViewMatrix();
-                    const dm::float4x4 m = math::affineToHomogeneous(invAf3);
-                    memcpy(inputs.viewToWorldMatrix.f, m.m_data, sizeof(float) * 16);
-                }
+                    inputs.useInlineRT = m_ui.KS.m_useTraceRayInline;
+                    inputs.injectionResolutionStride = m_ui.KS.m_lightInjectionStride;
+                    inputs.depth.tex = GetShaderResourceTexD3D12(m_RenderTargets[Layer::Opaque]->GBufferWorldPosition);
+                    inputs.depth.type = SDK::D3D12::RenderTask::DepthType::RGB_WorldSpace;
 
-                if (m_ui.KS.m_enableLateLightInjection) {
-                    if (tc_post_12 != nullptr) {
-                        sts = tc_post_12->ScheduleRenderTask(&inputs);
-                        if (sts != SDK::Status::OK) {
-                            log::fatal("KickStartRTX: ScheduleRenderTask() failed. : %d", (uint32_t)sts);
+                    inputs.directLighting = GetShaderResourceTexD3D12(m_RenderTargets[Layer::Opaque]->HdrColor);
+
+                    {
+                        float2 renderTargetSize = float2(m_RenderTargets[Layer::Opaque]->GetSize());
+
+                        inputs.viewport.topLeftX = 0;
+                        inputs.viewport.topLeftY = 0;
+                        inputs.viewport.width = (uint32_t)renderTargetSize.x;
+                        inputs.viewport.height = (uint32_t)renderTargetSize.y;
+                        inputs.viewport.minDepth = 0.0;
+                        inputs.viewport.maxDepth = 1.0;
+                    }
+                    {
+                        auto& invMat = m_View->GetInverseProjectionMatrix();
+                        memcpy(inputs.clipToViewMatrix.f, invMat.m_data, sizeof(float) * 16);
+                    }
+                    {
+                        const dm::affine3& invAf3 = m_View->GetInverseViewMatrix();
+                        const dm::float4x4 m = math::affineToHomogeneous(invAf3);
+                        memcpy(inputs.viewToWorldMatrix.f, m.m_data, sizeof(float) * 16);
+                    }
+
+                    if (m_ui.KS.m_enableLateLightInjection) {
+                        if (tc_post_12 != nullptr) {
+                            sts = tc_post_12->ScheduleRenderTask(&inputs);
+                            if (sts != SDK::Status::OK) {
+                                log::fatal("KickStartRTX: ScheduleRenderTask() failed. : %d", (uint32_t)sts);
+                            }
+                        }
+                    }
+                    else {
+                        if (tc12 != nullptr) {
+                            sts = tc12->ScheduleRenderTask(&inputs);
+                            if (sts != SDK::Status::OK) {
+                                log::fatal("KickStartRTX: ScheduleRenderTask() failed. : %d", (uint32_t)sts);
+                            }
                         }
                     }
                 }
-                else {
-                    if (tc12 != nullptr) {
-                        sts = tc12->ScheduleRenderTask(&inputs);
-                        if (sts != SDK::Status::OK) {
-                            log::fatal("KickStartRTX: ScheduleRenderTask() failed. : %d", (uint32_t)sts);
+
+                if (m_ui.KS.m_performTransfer)
+                {
+                    for (auto&& itr : m_SDKContext.m_insStates)
+                    {
+                        if (!itr.second.instanceProp_LightTransferTarget)
+                            continue;
+
+                        auto SDKInsIt = m_SDKContext.m_insHandles.find(itr.first);
+                        assert(SDKInsIt != m_SDKContext.m_insHandles.end());
+
+                        SDK::D3D12::RenderTask::DirectLightTransferTask transfer;
+                        #ifdef KickstartRT_Demo_WITH_D3D12
+                        transfer.target = SDKInsIt->second->m_12.m_iTask.handle;
+                        #endif
+                        transfer.useInlineRT = m_ui.KS.m_useTraceRayInline;
+
+                        if (tc12 != nullptr) {
+                            sts = tc12->ScheduleRenderTask(&transfer);
+                            if (sts != SDK::Status::OK) {
+                                log::fatal("KickStartRTX: ScheduleRenderTask() failed. : %d", (uint32_t)sts);
+                            }
                         }
+                        break;
                     }
+
+                    m_ui.KS.m_performTransfer = false;
                 }
             }
 #endif
@@ -2613,7 +2716,7 @@ public:
                 SDK::VK::RenderTask::DirectLightingInjectionTask inputs;
 
                 inputs.useInlineRT = m_ui.KS.m_useTraceRayInline;
-
+                inputs.injectionResolutionStride = m_ui.KS.m_lightInjectionStride;
                 inputs.depth.tex = GetShaderResourceTexVK(m_RenderTargets[Layer::Opaque]->GBufferWorldPosition);
                 inputs.depth.type = SDK::VK::RenderTask::DepthType::RGB_WorldSpace;
 
@@ -2733,6 +2836,8 @@ public:
                         const dm::float4x4& mat = m_View->GetProjectionMatrix(bIncludeOffset);
                         memcpy(rtTaskCommon.viewToClipMatrix.f, mat.m_data, sizeof(float) * 16);
                     }
+
+                    rtTaskCommon.maxRayLength = m_ui.KS.m_maxRayLength;
 
                     if (m_ui.KS.m_rayOffsetType == 1) {
                         rtTaskCommon.rayOffset.type = SDK::D3D11::RenderTask::RayOffset::Type::e_WorldPosition;
@@ -3022,6 +3127,8 @@ public:
                         memcpy(rtTask.common.viewToClipMatrix.f, mat.m_data, sizeof(float) * 16);
                     }
 
+                    rtTask.common.maxRayLength = m_ui.KS.m_maxRayLength;
+
                     if (m_ui.KS.m_rayOffsetType == 1) {
                         rtTask.common.rayOffset.type = SDK::D3D11::RenderTask::RayOffset::Type::e_WorldPosition;
                         rtTask.common.rayOffset.worldPosition.threshold = m_ui.KS.m_rayOffset_WorldPosition_threshold;
@@ -3115,6 +3222,8 @@ public:
                         const dm::float4x4& mat = m_View->GetProjectionMatrix(bIncludeOffset);
                         memcpy(rtTaskCommon.viewToClipMatrix.f, mat.m_data, sizeof(float) * 16);
                     }
+
+                    rtTaskCommon.maxRayLength = m_ui.KS.m_maxRayLength;
 
                     if (m_ui.KS.m_rayOffsetType == 1) {
                         rtTaskCommon.rayOffset.type = SDK::D3D12::RenderTask::RayOffset::Type::e_WorldPosition;
@@ -3404,6 +3513,8 @@ public:
                         memcpy(rtTask.common.viewToClipMatrix.f, mat.m_data, sizeof(float) * 16);
                     }
 
+                    rtTask.common.maxRayLength = m_ui.KS.m_maxRayLength;
+
                     if (m_ui.KS.m_rayOffsetType == 1) {
                         rtTask.common.rayOffset.type = SDK::D3D12::RenderTask::RayOffset::Type::e_WorldPosition;
                         rtTask.common.rayOffset.worldPosition.threshold = m_ui.KS.m_rayOffset_WorldPosition_threshold;
@@ -3498,6 +3609,8 @@ public:
                         const dm::float4x4& mat = m_View->GetProjectionMatrix(bIncludeOffset);
                         memcpy(rtTaskCommon.viewToClipMatrix.f, mat.m_data, sizeof(float) * 16);
                     }
+
+                    rtTaskCommon.maxRayLength = m_ui.KS.m_maxRayLength;
 
                     if (m_ui.KS.m_rayOffsetType == 1) {
                         rtTaskCommon.rayOffset.type = SDK::VK::RenderTask::RayOffset::Type::e_WorldPosition;
@@ -3779,6 +3892,8 @@ public:
                         const dm::float4x4& mat = m_View->GetProjectionMatrix();
                         memcpy(rtTask.common.viewToClipMatrix.f, mat.m_data, sizeof(float) * 16);
                     }
+
+                    rtTask.common.maxRayLength = m_ui.KS.m_maxRayLength;
 
                     if (m_ui.KS.m_rayOffsetType == 1) {
                         rtTask.common.rayOffset.type = SDK::VK::RenderTask::RayOffset::Type::e_WorldPosition;
@@ -4292,7 +4407,8 @@ public:
                 m_ui.KS.m_enableGI ? m_RenderTargets[Layer::Opaque]->GBufferRTGIFinal : nullptr,
                 m_ui.KS.m_enableAO ? m_RenderTargets[Layer::Opaque]->GBufferRTAOFinal : nullptr,
                 m_ui.KS.m_enableShadows != 0 ? m_RenderTargets[Layer::Opaque]->GBufferRTShadowsFinal : nullptr,
-                m_ui.KS.m_debugDisp != 0 ? true : false);
+                m_ui.KS.m_debugDisp != 0 ? true : false,
+                m_ui.KS.m_denoisingMethod == 1 ? true : false); // REBLUR uses YCoCg color space from NRD v3.7.
 #endif
 
         }
@@ -4528,6 +4644,7 @@ public:
             uint4 pixelValue = m_PixelReadbackPass->ReadUInts();
             m_ui.SelectedMaterial = nullptr;
             m_ui.SelectedNode = nullptr;
+            m_ui.SelectedMeshInstance = nullptr;
 
             for (const auto& material : m_Scene->GetSceneGraph()->GetMaterials())
             {
@@ -4543,6 +4660,7 @@ public:
                 if (instance->GetInstanceIndex() == int(pixelValue.y))
                 {
                     m_ui.SelectedNode = instance->GetNodeSharedPtr();
+                    m_ui.SelectedMeshInstance = instance;
                     break;
                 }
             }
@@ -5053,6 +5171,9 @@ protected:
 			if (ImGui::DragInt("Tile resolution limit", (int*)&m_ui.KS.m_tileResolutionLimit, 2, 16, 128, "%d")) {
 				m_ui.KS.m_destructGeom = true;
 			}
+            if (ImGui::DragInt("Light Injection Stride", (int*)&m_ui.KS.m_lightInjectionStride, 1, 1, 16, "%d")) {
+                m_ui.KS.m_destructGeom = true;
+            }
 		}
         if (m_ui.KS.m_surfelMode == 0) {
             if (m_ui.KS.m_surfelMode == 0 && ImGui::Checkbox("Force Direct Tile Mapping", &m_ui.KS.m_forceDirectTileMapping)) {
@@ -5071,6 +5192,11 @@ protected:
         ImGui::Checkbox("Shadows - Enable First Hit And End Search", &m_ui.KS.m_shadowsEnableFirstHitAndEndSearch);
 
         ImGui::Checkbox("Use Trace Ray Inline", &m_ui.KS.m_useTraceRayInline);
+
+        ImGui::Checkbox("Perform Light Cache Transfer", &m_ui.KS.m_performTransfer);
+        ImGui::Checkbox("Clear Light Cache", &m_ui.KS.m_destructGeom);
+
+        ImGui::DragFloat("Max Ray Length", &m_ui.KS.m_maxRayLength, 5.f, 0.f, 1000.f);
 
         ImGui::Separator();
         ImGui::Text("KickstartRT - Ray offset adjustments");
@@ -5226,6 +5352,51 @@ protected:
             
             ImGui::End();
         }
+
+#if defined(ENABLE_KickStartSDK)
+        auto meshInstance = m_ui.SelectedMeshInstance;
+        if (meshInstance)
+        {
+            ImGui::SetNextWindowPos(ImVec2(float(width) - 10.f, 300.f), 0, ImVec2(1.f, 0.f));
+            ImGui::Begin("Instance Editor");
+
+            auto&& instances(m_app->m_Scene->GetSceneGraph()->GetMeshInstances());
+            for (size_t i=0; i<instances.size(); ++i) {
+                std::string sNum = std::to_string(i);
+                std::string sWrk;
+
+                ImGui::Separator();
+                ImGui::Text("%d:Name \"%s\"", i, instances[i]->GetName().c_str());
+
+                sWrk = sNum + ":Visibe in Raster ";
+                ImGui::Checkbox(sWrk.c_str(), &instances[i]->Visibility());
+
+                ImGui::Text("KickStartRT: InstanceInclusionMask");
+
+                auto it = m_app->m_SDKContext.m_insStates.find(instances[i].get());
+                assert(it != m_app->m_SDKContext.m_insStates.end());
+
+                sWrk = sNum + ":Direct Light Injection Target";
+                if (ImGui::Checkbox(sWrk.c_str(), &it->second.instanceProp_DirectLightInjectionTarget))
+                    it->second.isDirty = true;
+
+                sWrk = sNum + ":Direct Light Transfer Source";
+                if (ImGui::Checkbox(sWrk.c_str(), &it->second.instanceProp_LightTransferSource))
+                    it->second.isDirty = true;
+
+                sWrk = sNum + ":Direct Light Transfer Target";
+                if (ImGui::Checkbox(sWrk.c_str(), &it->second.instanceProp_LightTransferTarget))
+                    it->second.isDirty = true;
+
+                sWrk = sNum + ":Visible in RT";
+                if (ImGui::Checkbox(sWrk.c_str(), &it->second.instanceProp_VisibleInRT))
+                    it->second.isDirty = true;
+            }
+
+
+            ImGui::End();
+        }
+#endif
         
         if (m_ui.AntiAliasingMode != AntiAliasingMode::NONE && m_ui.AntiAliasingMode != AntiAliasingMode::TEMPORAL)
             m_ui.UseDeferredShading = false;

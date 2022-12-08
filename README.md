@@ -22,7 +22,7 @@ Kickstart_Demo is built using CMake, so the build instructions are pretty standa
 2. Set up the dependent libraries  
   Refer KickstartRT SDK's [README.md](https://github.com/NVIDIAGameWorks/KickstartRT/blob/main/README.md) and set up prerequisites.
 3. CMake configure and generate projects.  
-  If you like, you can use CMake GUI to configure project files. You can set the destination folder anywhere but `build` directory just under the repository is preferred since it is already noted in `.gitignore`.   
+  If you like, you can use CMake GUI to configure project files. You can set the destination folder anywhere. However, `build` directory just under the repository is preferred since it is already noted in `.gitignore`.   
 4. Build & Run  
     - Open the Visual Studio solution which should be generated under `build` directory and build `KickstartRT_Demo` which should be a start up project.  
     - Run `KickstartRT_Demo`, then the app should be launched and show Sponza on the window with a debug menu. You can change the using graphics API by providing an argument `-d3d12`, `-d3d11` or `-vk`.  

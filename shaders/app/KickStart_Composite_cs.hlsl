@@ -25,8 +25,12 @@ cbuffer KickStart_CommonConstants : register(b0)
     uint     enableRTReflections;
     uint     enableRTGI;
     uint     enableRTAO;
-    uint     enableRTShadows;
+    uint     _pad0;
+
     uint     enableDebug;
+    uint     enableYCoCgToLienarOnRTReflections;
+    uint     enableYCoCgToLienarOnRTGI;
+    uint     _pad1;
 };
 
 Texture2D<float4> t_Albedo : register(t0);
@@ -36,30 +40,57 @@ Texture2D<float4> t_RTAO : register(t3);
 Texture2D<float4> t_RTShadows : register(t4);
 RWTexture2D<float4> u_OutputTex	: register(u0);
 
+// Since NRD's REBLUR outputs the result with YCoCg color space and KickStartRT doesn't want to add an extra render pass to simply decode it to RGB space, applications need to decode it.
+// NRD has prvided a utility function, REBLUR_BackEnd_UnpackRadianceAndNormHitDist() to decode, but for simplicity,
+// this sample application decodes it with a local function instead of including NRD shader codes.
+float3 YCoCgToLinear(const float3 color )
+{
+    float t = color.x - color.z;
+
+    float3 r;
+    r.y = color.x + color.z;
+    r.x = t + color.y;
+    r.z = t - color.y;
+
+    return max( r, 0.0 );
+}
+
 [numthreads(8, 8, 1)]
 void main(uint2 globalIndex : SV_DispatchThreadID)
 {
     float4 col = u_OutputTex[globalIndex];
 
     if (enableDebug) {
-        col.xyz = t_RTReflections[globalIndex].xyz;
+        float3 t = t_RTReflections[globalIndex].xyz;
+
+        if (enableYCoCgToLienarOnRTReflections) {
+            t = YCoCgToLinear(t);
+        }
+
+        col.xyz = t;
     }
     else {
         if (enableRTReflections) {
-            col.xyz += t_RTReflections[globalIndex].xyz;
+            float3 t = t_RTReflections[globalIndex].xyz;
+
+            if (enableYCoCgToLienarOnRTReflections) {
+                t = YCoCgToLinear(t);
+            }
+
+            col.xyz += t;
         }
         if (enableRTGI) {
-            col.xyz += t_RTGI[globalIndex].xyz * t_Albedo[globalIndex].xyz;
+            float3 t = t_RTGI[globalIndex].xyz;
+
+            if (enableYCoCgToLienarOnRTGI) {
+                t = YCoCgToLinear(t);
+            }
+
+            col.xyz += t * t_Albedo[globalIndex].xyz;
         }
         if (enableRTAO) {
             col.xyz *= t_RTAO[globalIndex].x;
         }
-		// Until we can properly extract shadows to run before main gbuffer, we have the composition in here, but disabled.
-		#if 0
-        if (enableRTShadows) {
-            col.xyz *= (0.1 + t_RTShadows[globalIndex].x);
-        }
-		#endif
     }
 
     u_OutputTex[globalIndex] = col;

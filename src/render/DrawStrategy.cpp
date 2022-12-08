@@ -84,39 +84,42 @@ void InstancedOpaqueDrawStrategy::FillChunk()
                 auto meshInstance = dynamic_cast<MeshInstance*>(m_Walker->GetLeaf().get());
                 if (meshInstance)
                 {
-                    const engine::MeshInfo* mesh = meshInstance->GetMesh().get();
+                    if (meshInstance->Visibility()) {
 
-                    size_t requiredChunkSize = itemCount + mesh->geometries.size();
-                    if (m_InstanceChunk.size() < requiredChunkSize)
-                    {
-                        m_InstanceChunk.resize(requiredChunkSize);
-                        writePtr = m_InstanceChunk.data() + itemCount;
-                    }
+                        const engine::MeshInfo* mesh = meshInstance->GetMesh().get();
 
-                    for (const auto& geometry : mesh->geometries)
-                    {
-                        auto domain = geometry->material->domain;
-                        if (domain != MaterialDomain::Opaque && domain != MaterialDomain::AlphaTested)
-                            continue;
-                        
-                        if (mesh->geometries.size() > 1 && !mesh->skinPrototype)
+                        size_t requiredChunkSize = itemCount + mesh->geometries.size();
+                        if (m_InstanceChunk.size() < requiredChunkSize)
                         {
-                            dm::box3 geometryGlobalBoundingBox = geometry->objectSpaceBounds * m_Walker->GetLocalToWorldTransformFloat();
-                            if (!m_ViewFrustum.intersectsWith(geometryGlobalBoundingBox))
-                                continue;
+                            m_InstanceChunk.resize(requiredChunkSize);
+                            writePtr = m_InstanceChunk.data() + itemCount;
                         }
 
-                        DrawItem& item = *writePtr;
-                        item.instance = meshInstance;
-                        item.mesh = mesh;
-                        item.geometry = geometry.get();
-                        item.material = geometry->material.get();
-                        item.buffers = item.mesh->buffers.get();
-                        item.cullMode = (item.material->doubleSided) ? nvrhi::RasterCullMode::None : nvrhi::RasterCullMode::Back;
-                        item.distanceToCamera = 0; // don't care
-                        
-                        ++writePtr;
-                        ++itemCount;
+                        for (const auto& geometry : mesh->geometries)
+                        {
+                            auto domain = geometry->material->domain;
+                            if (domain != MaterialDomain::Opaque && domain != MaterialDomain::AlphaTested)
+                                continue;
+
+                            if (mesh->geometries.size() > 1 && !mesh->skinPrototype)
+                            {
+                                dm::box3 geometryGlobalBoundingBox = geometry->objectSpaceBounds * m_Walker->GetLocalToWorldTransformFloat();
+                                if (!m_ViewFrustum.intersectsWith(geometryGlobalBoundingBox))
+                                    continue;
+                            }
+
+                            DrawItem& item = *writePtr;
+                            item.instance = meshInstance;
+                            item.mesh = mesh;
+                            item.geometry = geometry.get();
+                            item.material = geometry->material.get();
+                            item.buffers = item.mesh->buffers.get();
+                            item.cullMode = (item.material->doubleSided) ? nvrhi::RasterCullMode::None : nvrhi::RasterCullMode::Back;
+                            item.distanceToCamera = 0; // don't care
+
+                            ++writePtr;
+                            ++itemCount;
+                        }
                     }
                 }
             }
