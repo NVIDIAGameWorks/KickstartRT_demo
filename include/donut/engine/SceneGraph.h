@@ -85,6 +85,7 @@ namespace donut::engine
 
     protected:
         std::shared_ptr<MeshInfo> m_Mesh;
+        bool                      m_visibility = true;
 
     public:
         explicit MeshInstance(std::shared_ptr<MeshInfo> mesh)
@@ -97,6 +98,7 @@ namespace donut::engine
         [[nodiscard]] std::shared_ptr<SceneGraphLeaf> Clone() override;
         [[nodiscard]] SceneContentFlags GetContentFlags() const override;
         bool SetProperty(const std::string& name, const dm::float4& value) override;
+        bool& Visibility() { return m_visibility; };
     };
 
     struct SkinnedMeshJoint

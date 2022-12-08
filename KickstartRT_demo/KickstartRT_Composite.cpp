@@ -115,7 +115,8 @@ void KickStart_Composite::Render(
 	nvrhi::TextureHandle gbuffer_RTGIRT,
 	nvrhi::TextureHandle gbuffer_RTAORT,
 	nvrhi::TextureHandle gbuffer_RTShadows,
-	bool enableDebug
+	bool enableDebug,
+	bool enableYCoCgToLinear
 )
 {
 	// update common constants.
@@ -125,11 +126,15 @@ void KickStart_Composite::Render(
 		cb.enableRTReflections = gbuffer_RTReflectionRT.Get() != nullptr ? 1 : 0;
 		cb.enableRTGI = gbuffer_RTGIRT.Get() != nullptr ? 1 : 0;
 		cb.enableRTAO = gbuffer_RTAORT.Get() != nullptr ? 1 : 0;
-		cb.enableRTShadows = gbuffer_RTShadows.Get() != nullptr ? 1 : 0;
+		cb._pad0 = 0;
+
 		cb.enableDebug = enableDebug ? 1 : 0;
+		cb.enableYCoCgToLienarOnRTReflections = cb.enableRTReflections && enableYCoCgToLinear ? 1 : 0;
+		cb.enableYCoCgToLienarOnRTGI = cb.enableRTGI && enableYCoCgToLinear ? 1 : 0;
+		cb._pad1 = 0;
 
 		// nothing to composite.
-		if (cb.enableRTReflections + cb.enableRTAO + cb.enableRTGI + cb.enableRTShadows == 0)
+		if (cb.enableRTReflections + cb.enableRTAO + cb.enableRTGI == 0)
 			return;
 
 		commandList->writeBuffer(m_CommonConstants, &cb, sizeof(cb));
